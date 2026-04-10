@@ -26,7 +26,6 @@ class JourneyDetails {
     // Constructor only takes raw journey input.
     public JourneyDetails(int journeyId, int fromZone, int toZone,
                           String timeBand, String passengerType, double baseFare, LocalDate journeyDate) {
-
         this.journeyId = journeyId;
         this.fromZone = fromZone;
         this.toZone = toZone;
@@ -130,13 +129,17 @@ class AddJourney {
     // Adds a journey object and computes all fares internally.
     public void addJourney(JourneyDetails journeyDetails) {
 
-        double discountedFare = applyDiscount(journeyDetails, journeyDetails.getBaseFare());
-
-        journeyDetails.setDiscountedFare(discountedFare);
+        calculateDiscountForJourney(journeyDetails);
 
         journeyList.add(journeyDetails);
         totals.recalculateTotals();
         System.out.println("Journey added successfully.");
+    }
+
+    // Calculates the discount for each journey added.
+    public void calculateDiscountForJourney(JourneyDetails journeyDetails) {
+        double discounted = applyDiscount(journeyDetails, journeyDetails.getBaseFare());
+        journeyDetails.setDiscountedFare(discounted);
     }
 
     // Ensures journey IDs are unique to avoid ambiguity when adding, removing or undoing journeys.
@@ -695,11 +698,13 @@ class Config {
             System.out.println("No Journeys found to modify the base fare for them by the admin!");
             return;
         }
+
         for (JourneyDetails journeyDetails: journeyList){
             journeyDetails.setBaseFare(baseFare);
-            double discounted = addJourney.applyDiscount(journeyDetails, baseFare);
-            journeyDetails.setDiscountedFare(discounted);
             System.out.println("Base fare updated in 0 or many journeys to: " + baseFare);
+            /* This method is called by the add journey object which relates to the AddJourney class  to calculate the
+             discounted fare again after setting the base fare by the admin*/
+            addJourney.calculateDiscountForJourney(journeyDetails);
         }
         totals.recalculateTotals();
     }
@@ -1166,8 +1171,7 @@ public class CityRideLiteApp {
                         journeyList.clear(); // Clears all the journeys in the journeyList.
                         journeyList.addAll(imported);
                         for (JourneyDetails j : journeyList) {
-                            double discounted = journey1.applyDiscount(j, j.getBaseFare());
-                            j.setDiscountedFare(discounted);
+                            journey1.calculateDiscountForJourney(j);
                         }
                         totals.recalculateTotals();
                         System.out.println("Journeys loaded from file.");
