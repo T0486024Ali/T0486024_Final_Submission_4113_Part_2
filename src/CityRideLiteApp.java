@@ -37,6 +37,16 @@ class JourneyDetails {
         this.zonesCrossed = Math.abs(toZone - fromZone) + 1;
     }
 
+    public JourneyDetails() {
+        this.journeyId = 0;
+        this.fromZone = 1;
+        this.toZone = 1;
+        this.timeBand = "off-peak";
+        this.passengerType = "adult";
+        this.baseFare = 0;
+        this.journeyDate = LocalDate.now();
+    }
+
     // Setters used internally by Journey class.
     public void setDiscountedFare(double discountedFare) {
         this.discountedFare = discountedFare;
@@ -659,6 +669,11 @@ class Profile {
     public Profile(String name, String defaultPayment) {
         this.name = name;
         this.defaultPayment = defaultPayment;
+    }
+
+    public Profile() {
+        name = "Ali";
+        defaultPayment = "Visa";
     }
 
     public void showProfile() {
