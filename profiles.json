@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Ali",
+    "defaultPayment": "Visa"
+  },
+  {
+    "name": "Ahmed",
+    "defaultPayment": "Cash"
+  },
+  {
+    "name": "Omar",
+    "defaultPayment": "Apple Pay"
+  },
+  {
+    "name": "Ragab Ali",
+    "defaultPayment": "Credit card"
+  },
+  {
+    "name": "Hamada",
+    "defaultPayment": "Cash"
+  },
+  {
+    "name": "Aly",
+    "defaultPayment": "Visa"
+  },
+  {
+    "name": "Yasser Mohamed",
+    "defaultPayment": "Apple Pay"
+  },
+  {
+    "name": "Tarek Attia",
+    "defaultPayment": "Visa"
+  },
+  {
+    "name": "Omar Nabil",
+    "defaultPayment": "Credit Card"
+  },
+  {
+    "name": "Omar Tarek",
+    "defaultPayment": "Visa"
+  }
+]

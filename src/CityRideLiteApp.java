@@ -3,13 +3,12 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import java.io.*;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 import java.time.LocalDate;
-import java.util.InputMismatchException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.HashMap;
+import java.util.Map;
 
 // A class that holds data for a single journey.
 class JourneyDetails {
@@ -166,7 +165,7 @@ class AddJourney {
         } else if (journeyDetails.getPassengerType().equalsIgnoreCase("senior citizen")) {
             discountRate = new BigDecimal("0.3");
         } else if (journeyDetails.getPassengerType().equalsIgnoreCase("adult")) {
-            discountRate = new BigDecimal("0.2");
+            discountRate = BigDecimal.ZERO;
         } else {
             System.out.println("Invalid passenger type");
         }
@@ -505,7 +504,8 @@ class DisplayTotalByPassengerType {
         // Loop through each journey in order
         for (JourneyDetails journey : journeyList) {
             BigDecimal discountedFare = journey.getDiscountedFare();  // Already calculated per journey
-            BigDecimal remainingCap = getDailyCap(journey.getPassengerType()).multiply(getRunningTotal(journey.getPassengerType()));
+            BigDecimal remainingCap = getDailyCap(journey.getPassengerType()).
+                    subtract(getRunningTotal(journey.getPassengerType()));
 
             // Charged fare = min(discountedFare, remaining cap left)
             BigDecimal chargedFare = discountedFare.min(remainingCap);
@@ -717,27 +717,140 @@ class Profile {
     }
 }
 
-// A class that sets all the caps of all the passenger types.
-class Config {
+// A class that sets the base fare rules by modifying the rules of the CityRide dataset that the base fare is taken from.
+class BaseFareRules{
+    public BaseFareRules() {}
+
+    public enum TimeBand {
+        PEAK,
+        OFF_PEAK
+    }
+
+    public enum PassengerType {
+        ADULT,
+        STUDENT,
+        CHILD,
+        SENIOR_CITIZEN
+    }
+
+    public static BigDecimal money(String amount) {
+        return new BigDecimal(amount).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    public static String key(int fromZone, int toZone, TimeBand timeBand) {
+        return fromZone + "-" + toZone + "-" + timeBand.name();
+    }
+
+    public static final Map<String, BigDecimal> BASE_FARE = buildBaseFare();
+
+    public static BigDecimal getBaseFare(int fromZone, int toZone, TimeBand timeBand) {
+        return BASE_FARE.get(key(fromZone, toZone, timeBand));
+    }
+    public static Map<String, BigDecimal> buildBaseFare(){
+        Map<String, BigDecimal> m = new HashMap<>();
+        // Peak fares
+        put(m,1,1, TimeBand.PEAK,"3.50"); put(m,1,2, TimeBand.PEAK,"2.20");
+        put(m,1,3, TimeBand.PEAK,"1.50"); put(m,1,4, TimeBand.PEAK,"5.40");
+        put(m,1,5, TimeBand.PEAK,"8.00");
+
+        put(m,2,1, TimeBand.PEAK,"5.20"); put(m,2,2, TimeBand.PEAK,"3.30");
+        put(m,2,3, TimeBand.PEAK,"2.10"); put(m,2,4,TimeBand.PEAK,"4.80");
+        put(m,2,5, TimeBand.PEAK,"5.50");
+
+        put(m,3,1, TimeBand.PEAK,"6.80"); put(m,3,2, TimeBand.PEAK,"4.10");
+        put(m,3,3, TimeBand.PEAK,"7.10"); put(m,3,4, TimeBand.PEAK,"9.00");
+        put(m,3,5, TimeBand.PEAK,"8.70");
+
+        put(m,4,1, TimeBand.PEAK,"6.40"); put(m,4,2, TimeBand.PEAK,"4.50");
+        put(m,4,3, TimeBand.PEAK,"7.00"); put(m,4,4, TimeBand.PEAK,"5.00");
+        put(m,4,5, TimeBand.PEAK,"8.00");
+
+        put(m,5,1, TimeBand.PEAK,"6.10"); put(m,5,2, TimeBand.PEAK,"7.50");
+        put(m,5,3, TimeBand.PEAK,"4.60"); put(m,5,4, TimeBand.PEAK,"2.50");
+        put(m,5,5, TimeBand.PEAK,"1.50");
+
+        // Off-peak fares
+        put(m,1,1, TimeBand.OFF_PEAK,"6.00"); put(m,1,2, TimeBand.OFF_PEAK,"7.50");
+        put(m,1,3, TimeBand.OFF_PEAK,"5.30"); put(m,1,4, TimeBand.OFF_PEAK,"5.50");
+        put(m,1,5, TimeBand.OFF_PEAK,"5.20");
+
+        put(m,2,1, TimeBand.OFF_PEAK,"5.50"); put(m,2,2, TimeBand.OFF_PEAK,"5.80");
+        put(m,2,3, TimeBand.OFF_PEAK,"6.50"); put(m,2,4, TimeBand.OFF_PEAK,"5.90");
+        put(m,2,5, TimeBand.OFF_PEAK,"6.50");
+
+        put(m,3,1, TimeBand.OFF_PEAK,"1.20"); put(m,3,2, TimeBand.OFF_PEAK,"4.60");
+        put(m,3,3, TimeBand.OFF_PEAK,"1.80"); put(m,3,4, TimeBand.OFF_PEAK,"5.50");
+        put(m,3,5, TimeBand.OFF_PEAK,"8.00");
+
+        put(m,4,1, TimeBand.OFF_PEAK,"5.70"); put(m,4,2, TimeBand.OFF_PEAK,"7.20");
+        put(m,4,3, TimeBand.OFF_PEAK,"5.50"); put(m,4,4, TimeBand.OFF_PEAK,"2.60");
+        put(m,4,5, TimeBand.OFF_PEAK,"4.40");
+
+        put(m,5,1, TimeBand.OFF_PEAK,"5.20"); put(m,5,2, TimeBand.OFF_PEAK,"2.80");
+        put(m,5,3, TimeBand.OFF_PEAK,"2.10"); put(m,5,4, TimeBand.OFF_PEAK,"4.40");
+        put(m,5,5, TimeBand.OFF_PEAK,"6.50");
+
+        return Map.copyOf(m);
+    }
+
+    public static void put(Map<String, BigDecimal> m, int from, int to, TimeBand band, String amount) {
+        m.put(key(from, to, band), money(amount));
+    }
+}
+
+// A class that modifies all the base fare rules of all the journeys of all the passenger types by the admin.
+class BaseFare {
     private final List<JourneyDetails> journeyList;
 
-    public Config(List<JourneyDetails> journeyList) {
+    public BaseFare(List<JourneyDetails> journeyList) {
         this.journeyList = journeyList;
     }
 
-    public void setBaseFare (BigDecimal baseFare, AddJourney addJourney, DisplayTotalByPassengerType totals) {
+    public void setBaseFareRules (BigDecimal baseFare, AddJourney addJourney, DisplayTotalByPassengerType totals,
+                                  BaseFareRules fareRules) {
         if (journeyList.isEmpty()){
             System.out.println("No Journeys found to modify the base fare for them by the admin!");
             return;
         }
 
-        for (JourneyDetails journeyDetails: journeyList){
+        for (JourneyDetails journeyDetails: journeyList) {
+            BaseFareRules.TimeBand band;
+            if (journeyDetails.getTimeBand().equalsIgnoreCase("peak")) {
+                band = BaseFareRules.TimeBand.PEAK;
+            } else {
+                band = BaseFareRules.TimeBand.OFF_PEAK;
+            }
+            // update the base fare rules by the admin
+            baseFare = fareRules.getBaseFare(journeyDetails.getFromZone(), journeyDetails.getToZone(), band);
             journeyDetails.setBaseFare(baseFare);
-            System.out.println("Base fare updated in 0 or many journeys to: " + baseFare);
+        }
+    }
+}
+
+// A class that modifies all the discounts of all the journeys of all the passenger types by the admin.
+class Discounts {
+    private final List<JourneyDetails> journeyList;
+
+    public Discounts(List<JourneyDetails> journeyList) {
+        this.journeyList = journeyList;
+    }
+
+    // A method that sets all the discounted fares for all the journeys by the admin
+    public void setAllJourneysDiscounts (AddJourney addJourney) {
+        for (JourneyDetails journeyDetails: journeyList){
             /* This method is called by the add journey object which relates to the AddJourney class  to calculate the
              discounted fare again after setting the base fare by the admin*/
             addJourney.calculateDiscountForJourney(journeyDetails);
         }
+    }
+}
+
+// A class that modifies the caps of all the journeys of all the passenger types
+class Caps {
+    public Caps() {}
+
+    // A method that sets all the charged fares for all the journeys by the admin
+    public void setAllJourneysCaps (DisplayTotalByPassengerType totals) {
         totals.recalculateTotals();
     }
 }
@@ -769,12 +882,12 @@ class Rider {
 class Admin {
     private String userName;
     private String password;
-    private Config config;
+    private BaseFare baseFare;
 
-    public Admin(String userName, String password, Config config) {
+    public Admin(String userName, String password, BaseFare baseFare) {
         this.userName = userName;
         this.password = password;
-        this.config = config;
+        this.baseFare = baseFare;
     }
 
     /* A method that allows the admin to log in to the system with his  correct username and password to access a
@@ -783,9 +896,20 @@ class Admin {
         return userName.equals(inputUserName) && password.equals(inputPassword);
     }
 
-    // A method that modifies the base fare of 1 or multiple journeys.
-    public void modifyBaseFare(Config config, BigDecimal newFare, AddJourney addJourney, DisplayTotalByPassengerType totals) {
-        config.setBaseFare(newFare, addJourney, totals);
+    // A method that modifies the base fare rules for all the journeys.
+    public void modifyBaseFareRules(BaseFare baseFare, BigDecimal newFare, AddJourney addJourney,
+                                    DisplayTotalByPassengerType totals, BaseFareRules fareRules) {
+        baseFare.setBaseFareRules(newFare, addJourney, totals, fareRules);
+    }
+
+    // A method that modifies the discounts rules in all the journeys of all the passenger types.
+    public void modifyAllJourneysDiscounts(Discounts discount, AddJourney addJourney) {
+        discount.setAllJourneysDiscounts(addJourney);
+    }
+
+    // A method that modifies the caps of all the journeys of all the passenger types.
+    public void modifyAllJourneysCaps(Caps caps,DisplayTotalByPassengerType totals) {
+        caps.setAllJourneysCaps(totals);
     }
 }
 
@@ -794,8 +918,9 @@ public class CityRideLiteApp {
 
     public static void main(String[] args) {
 
+        BaseFareRules fareRules = new BaseFareRules();
         List<JourneyDetails> journeyList = new ArrayList<>();
-        List<Profile>  profiles = new ArrayList<>();
+        List<Profile> profiles = new ArrayList<>();
         Scanner sc = new Scanner(System.in);
 
         Rider rider = new Rider(profiles);
@@ -827,7 +952,7 @@ public class CityRideLiteApp {
                 }
             }
             i++;
-            Profile profile = new Profile(name,defaultPayment);
+            Profile profile = new Profile(name, defaultPayment);
             rider.addProfile(profile);
         }
 
@@ -897,8 +1022,8 @@ public class CityRideLiteApp {
             }
         }
 
-        Config config = new Config(journeyList);
-        Admin admin = new Admin(userName,password,config);
+        BaseFare baseFare1 = new BaseFare(journeyList);
+        Admin admin = new Admin(userName, password, baseFare1);
 
         int userRole = 0;
         boolean validUserRole = false;
@@ -921,8 +1046,7 @@ public class CityRideLiteApp {
 
         if (userRole == 1) {
             rider.displayProfiles();
-        }
-        else if (userRole == 2) {
+        } else if (userRole == 2) {
             System.out.println("The user role of this program is admin");
         }
 
@@ -932,12 +1056,14 @@ public class CityRideLiteApp {
         DisplaySummary journeysSummary = new DisplaySummary(journeyList);
         CategoryCounts count = new CategoryCounts(journeyList);
         DisplayTotalByPassengerType totals = new DisplayTotalByPassengerType(journeyList);
-        AddJourney journey1 = new AddJourney(journeyList,totals);
-        RemoveJourney removedJourney = new RemoveJourney(journeyList,totals);
-        UndoJourney journey2 = new UndoJourney(journeyList,totals);
+        AddJourney journey1 = new AddJourney(journeyList, totals);
+        RemoveJourney removedJourney = new RemoveJourney(journeyList, totals);
+        UndoJourney journey2 = new UndoJourney(journeyList, totals);
         ResetDay journeysReset = new ResetDay(journeyList, totals);
         ProfileFileWriter profileFileWriter = new ProfileFileWriter(profiles);
         ProfileFileReader profileFileReader = new ProfileFileReader();
+        Discounts discount = new Discounts(journeyList);
+        Caps caps = new Caps();
 
         boolean running = true;
 
@@ -962,7 +1088,7 @@ public class CityRideLiteApp {
             System.out.println("16. read all the journeys from a CSV file");
             System.out.println("17. write all the profiles to a JSON file");
             System.out.println("18. Read all the profiles from a JSON file");
-            System.out.println("19. Modify the base fare of 0 or many journeys by the admin");
+            System.out.println("19. Modify the base fare rules, discounts, daily caps by the admin");
             System.out.println("20. Exit");
             System.out.println("Choose option: ");
 
@@ -1190,8 +1316,7 @@ public class CityRideLiteApp {
                 case 15:
                     if (userRole == 1) {
                         JourneyFileWriter.writeStudentsToFile("journeys.csv", journeyList);
-                    }
-                    else {
+                    } else {
                         System.out.println("The user cannot write the journeys to a CSV file");
                     }
                     break;
@@ -1211,8 +1336,7 @@ public class CityRideLiteApp {
                             totals.recalculateTotals();
                             System.out.println("Journeys loaded from file.");
                         }
-                    }
-                    else {
+                    } else {
                         System.out.println("The user cannot read the journeys from a CSV file");
                     }
                     break;
@@ -1220,8 +1344,7 @@ public class CityRideLiteApp {
                 case 17:
                     if (userRole == 1) {
                         profileFileWriter.saveProfiles();
-                    }
-                    else {
+                    } else {
                         System.out.println("The user cannot write the profiles to a JSON file");
                     }
                     break;
@@ -1239,8 +1362,7 @@ public class CityRideLiteApp {
                         } else {
                             System.out.println("Profiles loaded from file.");
                         }
-                    }
-                    else {
+                    } else {
                         System.out.println("The user cannot read the profiles from a JSON file");
                     }
                     break;
@@ -1248,12 +1370,13 @@ public class CityRideLiteApp {
                 case 19:
                     if (userRole == 2) {
                         if (admin.login(inputUserName, inputPassword)) {
-                            admin.modifyBaseFare(config, configBaseFare,journey1, totals);
+                            admin.modifyBaseFareRules(baseFare1, configBaseFare, journey1, totals, fareRules);
+                            admin.modifyAllJourneysDiscounts(discount, journey1);
+                            admin.modifyAllJourneysCaps(caps, totals);
                         } else {
                             System.out.println("The admin cannot log in with this password and username to modify the base fare");
                         }
-                    }
-                    else {
+                    } else {
                         System.out.println("The user is not an admin");
                     }
                     break;
