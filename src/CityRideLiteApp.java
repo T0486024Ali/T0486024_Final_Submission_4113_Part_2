@@ -837,10 +837,25 @@ class Discounts {
 
     // A method that sets all the discounted fares for all the journeys by the admin
     public void setAllJourneysDiscounts (AddJourney addJourney) {
-        for (JourneyDetails journeyDetails: journeyList){
-            /* This method is called by the add journey object which relates to the AddJourney class  to calculate the
-             discounted fare again after setting the base fare by the admin*/
-            addJourney.calculateDiscountForJourney(journeyDetails);
+        for (JourneyDetails journeyDetails : journeyList){
+            BigDecimal discountRate = BigDecimal.ZERO;
+            BigDecimal baseFare = BigDecimal.ZERO;
+
+            if (journeyDetails.getPassengerType().equalsIgnoreCase("student")) {
+                discountRate = new BigDecimal("0.5");
+            } else if (journeyDetails.getPassengerType().equalsIgnoreCase("child")) {
+                discountRate = new BigDecimal("0.75");
+            } else if (journeyDetails.getPassengerType().equalsIgnoreCase("senior citizen")) {
+                discountRate = new BigDecimal("0.45");
+            } else if (journeyDetails.getPassengerType().equalsIgnoreCase("adult")) {
+                discountRate = new BigDecimal("1");
+            } else {
+                System.out.println("Invalid passenger type");
+            }
+
+            BigDecimal discount = journeyDetails.getBaseFare().multiply(discountRate);
+            baseFare = journeyDetails.getBaseFare().subtract(discount);
+            journeyDetails.setDiscountedFare(baseFare);
         }
     }
 }
