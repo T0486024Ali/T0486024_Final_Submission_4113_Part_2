@@ -128,12 +128,12 @@ class AddJourney {
     }
 
     // Adds a journey object and computes all fares internally.
-    public void addJourney(JourneyDetails journeyDetails) {
+    public void addJourney(JourneyDetails journeyDetails, GetCaps getCaps) {
 
         calculateDiscountForJourney(journeyDetails);
 
         journeyList.add(journeyDetails);
-        totals.recalculateTotals();
+        totals.recalculateTotals(getCaps);
         System.out.println("Journey added successfully.");
     }
 
@@ -266,7 +266,7 @@ class RemoveJourney {
         this.totals = totals;
     }
 
-    public JourneyDetails removeJourneyById(int id) {
+    public JourneyDetails removeJourneyById(int id, GetCaps getCaps) {
 
         for (int i = 0; i < journeyList.size(); i++) {
             if (journeyList.get(i).getJourneyId() == id) {
@@ -275,7 +275,7 @@ class RemoveJourney {
                 journeyList.remove(i);
 
                 // recalculate totals after removing
-                totals.recalculateTotals();
+                totals.recalculateTotals(getCaps);
 
 
                 System.out.println("Journey removed successfully.");
@@ -311,7 +311,7 @@ class UndoJourney {
         this.totals = totals;
     }
 
-    public void undoLastRemoval(RemoveJourney remover) {
+    public void undoLastRemoval(RemoveJourney remover, GetCaps getCaps) {
 
         JourneyDetails journey = remover.getLastRemovedJourney();
 
@@ -324,7 +324,7 @@ class UndoJourney {
         remover.clearLastRemovedJourney();
 
         // A method that recalculates all the passenger types’ totals after restoring a journey.
-        totals.recalculateTotals();
+        totals.recalculateTotals(getCaps);
 
         System.out.println("Last removed journey has been restored.");
     }
@@ -361,7 +361,7 @@ class SortJourneys {
 
 /* A class that displays a daily summary for all the journeys,
 including the total number of journeys and the most expensive journey.
- */
+*/
 class DisplaySummary {
 
     private final List<JourneyDetails> journeyList;
@@ -469,6 +469,22 @@ class ResetDay {
     }
 }
 
+// A class that gets all the daily caps of all the passenger types for all the journeys
+class GetCaps {
+    public GetCaps() {}
+
+    // A method that helps us to get all the daily caps of all the passenger types
+    public BigDecimal getDailyCap(String passengerType) {
+        switch(passengerType.toLowerCase()) {
+            case "student": return new BigDecimal("6.00");
+            case "child": return new BigDecimal("4.00");
+            case "senior citizen": return new BigDecimal("7.00");
+            case "adult": return new  BigDecimal("8.00");
+            default: return BigDecimal.ZERO;
+        }
+    }
+}
+
 // A class that displays totals by passenger type.
 class DisplayTotalByPassengerType {
 
@@ -484,19 +500,8 @@ class DisplayTotalByPassengerType {
         this.journeyList = journeyList;
     }
 
-    // A method that helps us to get all the daily caps of all the passenger types
-    public BigDecimal getDailyCap(String passengerType) {
-        switch(passengerType.toLowerCase()) {
-            case "student": return new BigDecimal("6.00");
-            case "child": return new BigDecimal("4.00");
-            case "senior citizen": return new BigDecimal("7.00");
-            case "adult": return new  BigDecimal("8.00");
-            default: return BigDecimal.ZERO;
-        }
-    }
-
     // Recalculate totals and update each journey's charged fare
-    public void recalculateTotals() {
+    public void recalculateTotals(GetCaps getCaps) {
 
         // Reset totals before recalculation
         adultTotal = studentTotal = childTotal = seniorTotal = BigDecimal.ZERO;
@@ -504,7 +509,7 @@ class DisplayTotalByPassengerType {
         // Loop through each journey in order
         for (JourneyDetails journey : journeyList) {
             BigDecimal discountedFare = journey.getDiscountedFare();  // Already calculated per journey
-            BigDecimal remainingCap = getDailyCap(journey.getPassengerType()).
+            BigDecimal remainingCap = getCaps.getDailyCap(journey.getPassengerType()).
                     subtract(getRunningTotal(journey.getPassengerType()));
 
             // Charged fare = min(discountedFare, remaining cap left)
@@ -806,8 +811,10 @@ class BaseFare {
         this.journeyList = journeyList;
     }
 
-    public void setBaseFareRules (BigDecimal baseFare, AddJourney addJourney, DisplayTotalByPassengerType totals,
+    public void setBaseFareRules (AddJourney addJourney, DisplayTotalByPassengerType totals,
                                   BaseFareRules fareRules) {
+        BigDecimal baseFare = BigDecimal.ZERO;
+
         if (journeyList.isEmpty()){
             System.out.println("No Journeys found to modify the base fare for them by the admin!");
             return;
@@ -836,7 +843,7 @@ class Discounts {
     }
 
     // A method that sets all the discounted fares for all the journeys by the admin
-    public void setAllJourneysDiscounts (AddJourney addJourney) {
+    public void setAllJourneysDiscounts () {
         for (JourneyDetails journeyDetails : journeyList){
             BigDecimal discountRate = BigDecimal.ZERO;
             BigDecimal baseFare = BigDecimal.ZERO;
@@ -848,7 +855,7 @@ class Discounts {
             } else if (journeyDetails.getPassengerType().equalsIgnoreCase("senior citizen")) {
                 discountRate = new BigDecimal("0.45");
             } else if (journeyDetails.getPassengerType().equalsIgnoreCase("adult")) {
-                discountRate = new BigDecimal("1");
+                discountRate = new BigDecimal("0.1");
             } else {
                 System.out.println("Invalid passenger type");
             }
@@ -860,13 +867,124 @@ class Discounts {
     }
 }
 
-// A class that modifies the caps of all the journeys of all the passenger types
-class Caps {
-    public Caps() {}
+// A class that modifies the caps of all the journeys of all the passenger types by the admin
+class SetCaps {
+    public SetCaps() {}
 
-    // A method that sets all the charged fares for all the journeys by the admin
-    public void setAllJourneysCaps (DisplayTotalByPassengerType totals) {
-        totals.recalculateTotals();
+    // A method that helps us to modify all the daily caps of all the passenger types by the admin.
+    public BigDecimal setDailyCap(String passengerType) {
+        switch(passengerType.toLowerCase()) {
+            case "student": return new BigDecimal("4.00");
+            case "child": return new BigDecimal("2.00");
+            case "senior citizen": return new BigDecimal("6.50");
+            case "adult": return new  BigDecimal("10.00");
+            default: return BigDecimal.ZERO;
+        }
+    }
+}
+
+/* A class that modifies the totals of all the passenger types in all the journeys after the admin changes the daily caps.
+This depends also on the charged fares after applying the discounts and daily caps on all the base fares of all the journeys
+of all the passenger types. */
+class SetTotalByPassengerType {
+    private final List<JourneyDetails> journeyList;
+
+    public SetTotalByPassengerType(List<JourneyDetails> journeyList) {
+        this.journeyList = journeyList;
+    }
+
+    // Running totals per passenger type (for daily cap logic)
+    private BigDecimal adultTotal = BigDecimal.ZERO;
+    private BigDecimal studentTotal = BigDecimal.ZERO;
+    private BigDecimal childTotal = BigDecimal.ZERO;
+    private BigDecimal seniorTotal = BigDecimal.ZERO;
+
+    public void setTotals(SetCaps setCaps) {
+
+        // Reset totals before recalculation
+        adultTotal = studentTotal = childTotal = seniorTotal = BigDecimal.ZERO;
+
+        // Loop through each journey in order
+        for (JourneyDetails journey : journeyList) {
+            BigDecimal discountedFare = journey.getDiscountedFare();  // Already calculated per journey
+            BigDecimal remainingCap = setCaps.setDailyCap(journey.getPassengerType()).
+                    subtract(getRunningTotal(journey.getPassengerType()));
+
+            // Charged fare = min(discountedFare, remaining cap left)
+            BigDecimal chargedFare = discountedFare.min(remainingCap);
+
+            // Set the journey's charged fare
+            journey.setChargedFare(chargedFare);
+
+            // Add to the running total
+            addToRunningTotal(journey.getPassengerType(), chargedFare);
+        }
+    }
+
+        // A method that gets the running total for a passenger type
+        public BigDecimal getRunningTotal (String passengerType){
+            switch (passengerType.toLowerCase()) {
+                case "student":
+                    return studentTotal;
+                case "child":
+                    return childTotal;
+                case "senior citizen":
+                    return seniorTotal;
+                case "adult":
+                    return adultTotal;
+                default:
+                    return BigDecimal.ZERO;
+            }
+        }
+
+        // A method that adds the total of each student to the running total.
+        public void addToRunningTotal (String passengerType, BigDecimal fare){
+            switch (passengerType.toLowerCase()) {
+                case "student":
+                    studentTotal = studentTotal.add(fare);
+                    break;
+                case "child":
+                    childTotal = childTotal.add(fare);
+                    break;
+                case "senior citizen":
+                    seniorTotal = seniorTotal.add(fare);
+                    break;
+                case "adult":
+                    adultTotal = adultTotal.add(fare);
+                    break;
+            }
+        }
+
+        // Display totals per passenger type
+        public void displayTotalsByPassengerType() {
+            System.out.println("Adult Total: £" + String.format("%.2f", adultTotal));
+            System.out.println("Student Total: £" + String.format("%.2f", studentTotal));
+            System.out.println("Child Total: £" + String.format("%.2f", childTotal));
+            System.out.println("Senior citizen Total: £" + String.format("%.2f", seniorTotal));
+        }
+}
+
+/* A class that calculates the savings of each journey which is the remaining amount from the discounted fare after applying
+the cap regardless of its passenger type */
+class Savings {
+    private final List<JourneyDetails> journeyList;
+
+    public Savings(List<JourneyDetails> journeyList) {
+        this.journeyList = journeyList;
+    }
+
+    public void setSavings() {
+        for (JourneyDetails journeyDetails : journeyList) {
+    /* Calculates savings which is the remaining amount from the discounted fare after applying the cap
+           on each journey regardless of its passenger type. */
+            BigDecimal Savings = journeyDetails.getDiscountedFare().subtract(journeyDetails.getChargedFare());
+
+            if (Savings.compareTo(BigDecimal.ZERO) > 0) {
+                System.out.println("The savings: " + Savings);
+            } else {
+                System.out.println("The savings might be 0 or lower");
+            }
+        }
     }
 }
 
@@ -912,19 +1030,19 @@ class Admin {
     }
 
     // A method that modifies the base fare rules for all the journeys.
-    public void modifyBaseFareRules(BaseFare baseFare, BigDecimal newFare, AddJourney addJourney,
+    public void modifyBaseFareRules(BaseFare baseFare, AddJourney addJourney,
                                     DisplayTotalByPassengerType totals, BaseFareRules fareRules) {
-        baseFare.setBaseFareRules(newFare, addJourney, totals, fareRules);
+        baseFare.setBaseFareRules(addJourney, totals, fareRules);
     }
 
     // A method that modifies the discounts rules in all the journeys of all the passenger types.
-    public void modifyAllJourneysDiscounts(Discounts discount, AddJourney addJourney) {
-        discount.setAllJourneysDiscounts(addJourney);
+    public void modifyAllJourneysDiscounts(Discounts discount) {
+        discount.setAllJourneysDiscounts();
     }
 
     // A method that modifies the caps of all the journeys of all the passenger types.
-    public void modifyAllJourneysCaps(Caps caps,DisplayTotalByPassengerType totals) {
-        caps.setAllJourneysCaps(totals);
+    public void modifyAllJourneysCaps(SetTotalByPassengerType setTotalByPassengerType, SetCaps setCaps) {
+        setTotalByPassengerType.setTotals(setCaps);
     }
 }
 
@@ -1023,20 +1141,6 @@ public class CityRideLiteApp {
             }
         }
 
-        BigDecimal configBaseFare = BigDecimal.ZERO;
-        boolean validConfigBaseFare = false;
-        while (!validConfigBaseFare) {
-            try {
-                System.out.println("Config base fare:");
-                configBaseFare = sc.nextBigDecimal();
-                sc.nextLine();
-                validConfigBaseFare = true;
-            } catch (InputMismatchException e) {
-                System.out.println("Invalid input. Please enter a valid input for the config base fare.");
-                sc.nextLine();
-            }
-        }
-
         BaseFare baseFare1 = new BaseFare(journeyList);
         Admin admin = new Admin(userName, password, baseFare1);
 
@@ -1070,6 +1174,7 @@ public class CityRideLiteApp {
         SortJourneys sortedJourneys = new SortJourneys(journeyList);
         DisplaySummary journeysSummary = new DisplaySummary(journeyList);
         CategoryCounts count = new CategoryCounts(journeyList);
+        GetCaps getCaps = new GetCaps();
         DisplayTotalByPassengerType totals = new DisplayTotalByPassengerType(journeyList);
         AddJourney journey1 = new AddJourney(journeyList, totals);
         RemoveJourney removedJourney = new RemoveJourney(journeyList, totals);
@@ -1078,7 +1183,9 @@ public class CityRideLiteApp {
         ProfileFileWriter profileFileWriter = new ProfileFileWriter(profiles);
         ProfileFileReader profileFileReader = new ProfileFileReader();
         Discounts discount = new Discounts(journeyList);
-        Caps caps = new Caps();
+        SetCaps setCaps = new SetCaps();
+        SetTotalByPassengerType setTotalByPassengerType = new SetTotalByPassengerType(journeyList);
+        Savings savings = new Savings(journeyList);
 
         boolean running = true;
 
@@ -1104,7 +1211,9 @@ public class CityRideLiteApp {
             System.out.println("17. write all the profiles to a JSON file");
             System.out.println("18. Read all the profiles from a JSON file");
             System.out.println("19. Modify the base fare rules, discounts, daily caps by the admin");
-            System.out.println("20. Exit");
+            System.out.println("20. Print the savings which is the remaining amount from the discounted fare after " +
+                    "applying the cap on each journey regardless fo its passenger type.");
+            System.out.println("21.Exit.");
             System.out.println("Choose option: ");
 
             int choice = 0;
@@ -1124,215 +1233,290 @@ public class CityRideLiteApp {
             switch (choice) {
 
                 case 1:
-                    int journeyId = 0;
-                    boolean validJourneyId = false;
+                    if (userRole == 1 || userRole == 2) {
+                        int journeyId = 0;
+                        boolean validJourneyId = false;
 
-                    while (!validJourneyId) {
-                        try {
-                            System.out.println("Journey ID:");
-                            journeyId = sc.nextInt();
-                            sc.nextLine();
-                            if (journey1.journeyIdExists(journeyId)) {
-                                System.out.println("This Journey ID already exists. Please enter a unique ID.");
-                            } else {
-                                validJourneyId = true;
+                        while (!validJourneyId) {
+                            try {
+                                System.out.println("Journey ID:");
+                                journeyId = sc.nextInt();
+                                sc.nextLine();
+                                if (journey1.journeyIdExists(journeyId)) {
+                                    System.out.println("This Journey ID already exists. Please enter a unique ID.");
+                                } else {
+                                    validJourneyId = true;
+                                }
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Journey ID must be an integer.");
+                                sc.nextLine();
                             }
-                        } catch (InputMismatchException e) {
-                            System.out.println("Invalid input. Journey ID must be an integer.");
-                            sc.nextLine();
                         }
-                    }
 
-                    int fromZone = 0;
-                    boolean validFromZone = false;
+                        int fromZone = 0;
+                        boolean validFromZone = false;
 
-                    while (!validFromZone) {
-                        try {
-                            System.out.println("From zone (1–5):");
+                        while (!validFromZone) {
+                            try {
+                                System.out.println("From zone (1–5):");
+                                fromZone = sc.nextInt();
+                                validFromZone = true;
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Please enter a number.");
+                                sc.nextLine();
+                            }
+                        }
+
+                        while (fromZone <= 0 || fromZone > 5) {
+                            System.out.println("Please enter a valid input for the starting zone (1 to 5): ");
                             fromZone = sc.nextInt();
-                            validFromZone = true;
-                        } catch (InputMismatchException e) {
-                            System.out.println("Invalid input. Please enter a number.");
-                            sc.nextLine();
                         }
-                    }
 
-                    while (fromZone <= 0 || fromZone > 5) {
-                        System.out.println("Please enter a valid input for the starting zone (1 to 5): ");
-                        fromZone = sc.nextInt();
-                    }
+                        int toZone = 0;
+                        boolean validToZone = false;
 
-                    int toZone = 0;
-                    boolean validToZone = false;
+                        while (!validToZone) {
+                            try {
+                                System.out.println("To zone (1–5):");
+                                toZone = sc.nextInt();
+                                validToZone = true;
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Please enter a number.");
+                                sc.nextLine();
+                            }
+                        }
 
-                    while (!validToZone) {
-                        try {
-                            System.out.println("To zone (1–5):");
+                        while (toZone <= 0 || toZone > 5) {
+                            System.out.println("Please enter a valid input for the destination zone (1 to 5): ");
                             toZone = sc.nextInt();
-                            validToZone = true;
-                        } catch (InputMismatchException e) {
-                            System.out.println("Invalid input. Please enter a number.");
-                            sc.nextLine();
                         }
-                    }
 
-                    while (toZone <= 0 || toZone > 5) {
-                        System.out.println("Please enter a valid input for the destination zone (1 to 5): ");
-                        toZone = sc.nextInt();
-                    }
+                        sc.nextLine();
 
-                    sc.nextLine();
+                        String passengerType = "";
+                        boolean validPassengerType = false;
 
-                    String passengerType = "";
-                    boolean validPassengerType = false;
-
-                    while (!validPassengerType) {
-                        try {
-                            System.out.println("Passenger type (Adult / Student / Child / Senior Citizen):");
-                            passengerType = sc.nextLine().trim().toLowerCase();
-                            while (!passengerType.equalsIgnoreCase("adult") &&
-                                    !passengerType.equalsIgnoreCase("student") &&
-                                    !passengerType.equalsIgnoreCase("child") &&
-                                    !passengerType.equalsIgnoreCase("senior citizen")) {
-                                System.out.println("Please enter a valid passenger type: ");
+                        while (!validPassengerType) {
+                            try {
+                                System.out.println("Passenger type (Adult / Student / Child / Senior Citizen):");
                                 passengerType = sc.nextLine().trim().toLowerCase();
+                                while (!passengerType.equalsIgnoreCase("adult") &&
+                                        !passengerType.equalsIgnoreCase("student") &&
+                                        !passengerType.equalsIgnoreCase("child") &&
+                                        !passengerType.equalsIgnoreCase("senior citizen")) {
+                                    System.out.println("Please enter a valid passenger type: ");
+                                    passengerType = sc.nextLine().trim().toLowerCase();
+                                }
+                                validPassengerType = true;
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Please enter a valid input for the passenger type: ");
+                                sc.nextLine();
                             }
-                            validPassengerType = true;
-                        } catch (InputMismatchException e) {
-                            System.out.println("Invalid input. Please enter a valid input for the passenger type: ");
-                            sc.nextLine();
                         }
-                    }
 
-                    String timeBand = "";
-                    boolean validTimeBand = false;
+                        String timeBand = "";
+                        boolean validTimeBand = false;
 
-                    while (!validTimeBand) {
-                        try {
-                            System.out.println("Time band (Peak / Off-Peak):");
-                            timeBand = sc.nextLine().trim().toLowerCase();
-                            while (!timeBand.equalsIgnoreCase("peak") &&
-                                    !timeBand.equalsIgnoreCase("off-peak")) {
+                        while (!validTimeBand) {
+                            try {
+                                System.out.println("Time band (Peak / Off-Peak):");
+                                timeBand = sc.nextLine().trim().toLowerCase();
+                                while (!timeBand.equalsIgnoreCase("peak") &&
+                                        !timeBand.equalsIgnoreCase("off-peak")) {
 
-                                System.out.println("Please enter peak or off-peak: ");
-                                timeBand = sc.nextLine();
+                                    System.out.println("Please enter peak or off-peak: ");
+                                    timeBand = sc.nextLine();
+                                }
+                                validTimeBand = true;
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Please enter a valid time band: ");
+                                sc.nextLine();
                             }
-                            validTimeBand = true;
-                        } catch (InputMismatchException e) {
-                            System.out.println("Invalid input. Please enter a valid time band: ");
-                            sc.nextLine();
                         }
-                    }
 
-                    // Convert String → Enum
-                    CityRideDataset.TimeBand band;
+                        // Convert String → Enum
+                        CityRideDataset.TimeBand band;
 
-                    if (timeBand.equalsIgnoreCase("peak")) {
-                        band = CityRideDataset.TimeBand.PEAK;
-                    } else {
-                        band = CityRideDataset.TimeBand.OFF_PEAK;
-                    }
-
-                    BigDecimal baseFare = CityRideDataset
-                            .getBaseFare(fromZone, toZone, band);
-
-                    LocalDate journeyDate = null;
-                    boolean validDate = false;
-
-                    while (!validDate) {
-                        try {
-                            System.out.println("Journey date (YYYY-MM-DD):");
-                            String dateInput = sc.nextLine();
-                            journeyDate = LocalDate.parse(dateInput);
-                            validDate = true;
-                        } catch (InputMismatchException e) {
-                            System.out.println("Invalid input. Please enter a valid input for the date: ");
-                            sc.nextLine();
-                        } catch (Exception e) {
-                            System.out.println("Invalid date format. Use YYYY-MM-DD.");
+                        if (timeBand.equalsIgnoreCase("peak")) {
+                            band = CityRideDataset.TimeBand.PEAK;
+                        } else {
+                            band = CityRideDataset.TimeBand.OFF_PEAK;
                         }
+
+                        BigDecimal baseFare = CityRideDataset
+                                .getBaseFare(fromZone, toZone, band);
+
+                        LocalDate journeyDate = null;
+                        boolean validDate = false;
+
+                        while (!validDate) {
+                            try {
+                                System.out.println("Journey date (YYYY-MM-DD):");
+                                String dateInput = sc.nextLine();
+                                journeyDate = LocalDate.parse(dateInput);
+                                validDate = true;
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Please enter a valid input for the date: ");
+                                sc.nextLine();
+                            } catch (Exception e) {
+                                System.out.println("Invalid date format. Use YYYY-MM-DD.");
+                            }
+                        }
+
+                        JourneyDetails journey = new JourneyDetails(
+                                journeyId,
+                                fromZone,
+                                toZone,
+                                timeBand,
+                                passengerType,
+                                baseFare,
+                                journeyDate
+                        );
+
+                        journey1.addJourney(journey, getCaps);
                     }
-
-                    JourneyDetails journey = new JourneyDetails(
-                            journeyId,
-                            fromZone,
-                            toZone,
-                            timeBand,
-                            passengerType,
-                            baseFare,
-                            journeyDate
-                    );
-
-                    journey1.addJourney(journey);
                     break;
 
                 case 2:
-                    journeys.displayJourneys();
+                    if (userRole == 1 || userRole == 2) {
+                        journeys.displayJourneys();
+                    }
                     break;
 
                 case 3:
-                    System.out.println("Passenger type to filter: ");
-                    journeysFiltered.filterByPassengerType(sc.nextLine());
+                    if (userRole == 1) {
+                        System.out.println("Passenger type to filter: ");
+                        journeysFiltered.filterByPassengerType(sc.nextLine());
+                    }
+                    else {
+                        System.out.println("The program’s user is not a rider to filter all the journeys by the " +
+                                "passenger type");
+                    }
                     break;
 
                 case 4:
-                    System.out.println("Starting zone to filter: ");
-                    journeysFiltered.filterByStartingZone(sc.nextInt());
+                    if (userRole == 1) {
+                        System.out.println("Starting zone to filter: ");
+                        journeysFiltered.filterByStartingZone(sc.nextInt());
+                    }
+                    else {
+                        System.out.println("The program’s user is not a rider to filter all the journeys by the " +
+                                "starting zone");
+                    }
                     break;
+
                 case 5:
-                    System.out.println("Destination zone to filter: ");
-                    journeysFiltered.filterByDestinationZone(sc.nextInt());
+                    if (userRole == 1) {
+                        System.out.println("Destination zone to filter: ");
+                        journeysFiltered.filterByDestinationZone(sc.nextInt());
+                    }
+                    else {
+                        System.out.println("The program’s user is not a rider to filter all the journeys by the " +
+                                "destination zone");
+                    }
                     break;
 
                 case 6:
-                    System.out.println("Journey date to filter: ");
-                    String dateInput = sc.nextLine();
-                    LocalDate dateOfJourney = LocalDate.parse(dateInput);
-                    journeysFiltered.filterByJourneyDate(dateOfJourney);
+                    if (userRole == 1) {
+                        System.out.println("Journey date to filter: ");
+                        String dateInput = sc.nextLine();
+                        LocalDate dateOfJourney = LocalDate.parse(dateInput);
+                        journeysFiltered.filterByJourneyDate(dateOfJourney);
+                    }
+                    else {
+                        System.out.println("The program’s user is not a rider to filter all the journeys by the " +
+                                "journey date");
+                    }
                     break;
+
                 case 7:
-                    System.out.println("Time band to filter: ");
-                    journeysFiltered.filterByTimeBand(sc.nextLine());
+                    if (userRole == 1) {
+                        System.out.println("Time band to filter: ");
+                        journeysFiltered.filterByTimeBand(sc.nextLine());
+                    }
+                    else {
+                        System.out.println("The program’s user is not a rider to filter all the journeys by the " +
+                                "time band");
+                    }
                     break;
 
                 case 8:
-                    System.out.println("Journey ID to remove: ");
-                    removedJourney.removeJourneyById(sc.nextInt());
+                    if (userRole == 1) {
+                        System.out.println("Journey ID to remove: ");
+                        removedJourney.removeJourneyById(sc.nextInt(), getCaps);
+                    }
+                    else {
+                        System.out.println("The program’s user is not a rider to to try to remove any journey by its " +
+                                "ID");
+                    }
                     sc.nextLine();
                     break;
 
                 case 9:
-                    journey2.undoLastRemoval(removedJourney);
+                    if (userRole == 1) {
+                        journey2.undoLastRemoval(removedJourney, getCaps);
+                    }
+                    else {
+                        System.out.println("The program’s user is not a rider to try to undo any last removed journey");
+                    }
                     break;
 
                 case 10:
-                    sortedJourneys.sortJourneysByFare();
+                    if (userRole == 1) {
+                        sortedJourneys.sortJourneysByFare();
+                    }
+                    else {
+                        System.out.println("The program’s user is not a rider to sort any journeys by the charged fare");
+                    }
                     break;
 
                 case 11:
-                    journeysSummary.displayDailySummary();
+                    if (userRole == 1) {
+                        journeysSummary.displayDailySummary();
+                    }
+                    else {
+                        System.out.println("The program’s user is not a rider to display a daily summary for all the " +
+                                "journeys");
+                    }
                     break;
 
                 case 12:
-                    count.displayTimeBandCounts();
-                    count.displayZoneCounts();
+                    if  (userRole == 1) {
+                        count.displayTimeBandCounts();
+                        count.displayZoneCounts();
+                    }
+                    else {
+                        System.out.println("The program’s user is not a rider to count all the journeys that are peak" +
+                                "and off-peak, or to count all the journeys that are displayed in each zone");
+                    }
                     break;
 
                 case 13:
-                    System.out.println("Confirm reset (y/n): ");
-                    journeysReset.resetJourneys(sc.nextLine().equalsIgnoreCase("y"));
+                    if (userRole == 1) {
+                        System.out.println("Confirm reset (y/n): ");
+                        journeysReset.resetJourneys(sc.nextLine().equalsIgnoreCase("y"));
+                    }
+                    else {
+                        System.out.println("The program’s user is not a rider to reset all the journeys");
+                    }
                     break;
 
                 case 14:
-                    totals.recalculateTotals();
-                    totals.displayTotalsByPassengerType();
+                    if (userRole == 1) {
+                        totals.recalculateTotals(getCaps);
+                        totals.displayTotalsByPassengerType();
+                    }
+                    else {
+                        setTotalByPassengerType.setTotals(setCaps);
+                        setTotalByPassengerType.displayTotalsByPassengerType();
+                    }
                     break;
 
                 case 15:
                     if (userRole == 1) {
                         JourneyFileWriter.writeStudentsToFile("journeys.csv", journeyList);
                     } else {
-                        System.out.println("The user cannot write the journeys to a CSV file");
+                        System.out.println("The user cannot write the journeys to a CSV file because he is not a rider.");
                     }
                     break;
 
@@ -1348,11 +1532,11 @@ public class CityRideLiteApp {
                             for (JourneyDetails j : journeyList) {
                                 journey1.calculateDiscountForJourney(j);
                             }
-                            totals.recalculateTotals();
+                            totals.recalculateTotals(getCaps);
                             System.out.println("Journeys loaded from file.");
                         }
                     } else {
-                        System.out.println("The user cannot read the journeys from a CSV file");
+                        System.out.println("The user cannot read the journeys from a CSV file because he is not a rider.");
                     }
                     break;
 
@@ -1360,7 +1544,7 @@ public class CityRideLiteApp {
                     if (userRole == 1) {
                         profileFileWriter.saveProfiles();
                     } else {
-                        System.out.println("The user cannot write the profiles to a JSON file");
+                        System.out.println("The user cannot write the profiles to a JSON file because he is not a rider.");
                     }
                     break;
 
@@ -1378,25 +1562,36 @@ public class CityRideLiteApp {
                             System.out.println("Profiles loaded from file.");
                         }
                     } else {
-                        System.out.println("The user cannot read the profiles from a JSON file");
+                        System.out.println("The user cannot read the profiles from a JSON file because he is not a rider.");
                     }
                     break;
 
                 case 19:
                     if (userRole == 2) {
                         if (admin.login(inputUserName, inputPassword)) {
-                            admin.modifyBaseFareRules(baseFare1, configBaseFare, journey1, totals, fareRules);
-                            admin.modifyAllJourneysDiscounts(discount, journey1);
-                            admin.modifyAllJourneysCaps(caps, totals);
+                            admin.modifyBaseFareRules(baseFare1, journey1, totals, fareRules);
+                            admin.modifyAllJourneysDiscounts(discount);
+                            admin.modifyAllJourneysCaps(setTotalByPassengerType,setCaps);
+                            System.out.println("All the base fare rules, discounts, daily caps are modified in " +
+                                    "all the journeys of all the passenger types by the admin");
                         } else {
                             System.out.println("The admin cannot log in with this password and username to modify the base fare");
                         }
                     } else {
-                        System.out.println("The user is not an admin");
+                        System.out.println("The user is not an admin to do these changes.");
                     }
                     break;
 
                 case 20:
+                    if (journeyList.isEmpty()) {
+                        System.out.println("No journeys recorded.");
+                    }
+                    else {
+                        savings.setSavings();
+                    }
+                    break;
+
+                case 21:
                     running = false;
                     System.out.println("Exiting CityRide Lite.");
                     break;
