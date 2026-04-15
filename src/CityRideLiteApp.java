@@ -1260,16 +1260,15 @@ public class CityRideLiteApp {
                             try {
                                 System.out.println("From zone (1–5):");
                                 fromZone = sc.nextInt();
+                                while (fromZone <= 0 || fromZone > 5) {
+                                    System.out.println("Please enter a valid input for the starting zone (1 to 5): ");
+                                    fromZone = sc.nextInt();
+                                }
                                 validFromZone = true;
                             } catch (InputMismatchException e) {
                                 System.out.println("Invalid input. Please enter a number.");
                                 sc.nextLine();
                             }
-                        }
-
-                        while (fromZone <= 0 || fromZone > 5) {
-                            System.out.println("Please enter a valid input for the starting zone (1 to 5): ");
-                            fromZone = sc.nextInt();
                         }
 
                         int toZone = 0;
@@ -1279,19 +1278,17 @@ public class CityRideLiteApp {
                             try {
                                 System.out.println("To zone (1–5):");
                                 toZone = sc.nextInt();
+                                while (toZone <= 0 || toZone > 5) {
+                                    System.out.println("Please enter a valid input for the destination zone (1 to 5): ");
+                                    toZone = sc.nextInt();
+                                }
+                                sc.nextLine();
                                 validToZone = true;
                             } catch (InputMismatchException e) {
                                 System.out.println("Invalid input. Please enter a number.");
                                 sc.nextLine();
                             }
                         }
-
-                        while (toZone <= 0 || toZone > 5) {
-                            System.out.println("Please enter a valid input for the destination zone (1 to 5): ");
-                            toZone = sc.nextInt();
-                        }
-
-                        sc.nextLine();
 
                         String passengerType = "";
                         boolean validPassengerType = false;
@@ -1397,7 +1394,25 @@ public class CityRideLiteApp {
                 case 4:
                     if (userRole == 1) {
                         System.out.println("Starting zone to filter: ");
-                        journeysFiltered.filterByStartingZone(sc.nextInt());
+                        int fromZone = 0;
+                        boolean validFromZone = false;
+
+                        while (!validFromZone) {
+                            try {
+                                System.out.println("From zone (1–5):");
+                                fromZone = sc.nextInt();
+                                while (fromZone <= 0 || fromZone > 5) {
+                                    System.out.println("Please enter a valid input for the starting zone (1 to 5): ");
+                                    fromZone = sc.nextInt();
+                                }
+                                sc.nextLine();
+                                validFromZone = true;
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Please enter a number.");
+                                sc.nextLine();
+                            }
+                        }
+                        journeysFiltered.filterByStartingZone(fromZone);
                     }
                     else {
                         System.out.println("The program’s user is not a rider to filter all the journeys by the " +
@@ -1408,7 +1423,25 @@ public class CityRideLiteApp {
                 case 5:
                     if (userRole == 1) {
                         System.out.println("Destination zone to filter: ");
-                        journeysFiltered.filterByDestinationZone(sc.nextInt());
+                        int toZone = 0;
+                        boolean validToZone = false;
+
+                        while (!validToZone) {
+                            try {
+                                System.out.println("To zone (1–5):");
+                                toZone = sc.nextInt();
+                                while (toZone <= 0 || toZone > 5) {
+                                    System.out.println("Please enter a valid input for the destination zone (1 to 5): ");
+                                    toZone = sc.nextInt();
+                                }
+                                sc.nextLine();
+                                validToZone = true;
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Please enter a number.");
+                                sc.nextLine();
+                            }
+                        }
+                        journeysFiltered.filterByDestinationZone(toZone);
                     }
                     else {
                         System.out.println("The program’s user is not a rider to filter all the journeys by the " +
@@ -1419,8 +1452,21 @@ public class CityRideLiteApp {
                 case 6:
                     if (userRole == 1) {
                         System.out.println("Journey date to filter: ");
-                        String dateInput = sc.nextLine();
-                        LocalDate dateOfJourney = LocalDate.parse(dateInput);
+                        LocalDate dateOfJourney = null;
+                        boolean validDate = false;
+                        while (!validDate) {
+                            try {
+                                System.out.println("Journey date (YYYY-MM-DD):");
+                                String dateInput = sc.nextLine();
+                                dateOfJourney = LocalDate.parse(dateInput);
+                                validDate = true;
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Please enter a valid input for the date: ");
+                                sc.nextLine();
+                            } catch (Exception e) {
+                                System.out.println("Invalid date format. Use YYYY-MM-DD.");
+                            }
+                        }
                         journeysFiltered.filterByJourneyDate(dateOfJourney);
                     }
                     else {
@@ -1443,13 +1489,26 @@ public class CityRideLiteApp {
                 case 8:
                     if (userRole == 1) {
                         System.out.println("Journey ID to remove: ");
-                        removedJourney.removeJourneyById(sc.nextInt(), getCaps);
+                        int journeyId = 0;
+                        boolean validJourneyId = false;
+
+                        while (!validJourneyId) {
+                            try {
+                                System.out.println("Journey ID:");
+                                journeyId = sc.nextInt();
+                                sc.nextLine();
+                                validJourneyId = true;
+                            } catch (InputMismatchException e) {
+                                System.out.println("Invalid input. Journey ID must be an integer.");
+                                sc.nextLine();
+                            }
+                        }
+                        removedJourney.removeJourneyById(journeyId, getCaps);
                     }
                     else {
                         System.out.println("The program’s user is not a rider to to try to remove any journey by its " +
                                 "ID");
                     }
-                    sc.nextLine();
                     break;
 
                 case 9:
