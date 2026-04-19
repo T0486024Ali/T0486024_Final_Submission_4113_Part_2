@@ -47,13 +47,17 @@ class JourneyDetails {
         this.journeyDate = LocalDate.now();
     }
 
-    // Setters used internally by Journey class.
+    // Setters used internally by the Journey class.
     public void setDiscountedFare(BigDecimal discountedFare) {
         this.discountedFare = discountedFare;
     }
 
     public void setChargedFare(BigDecimal chargedFare) {
         this.chargedFare = chargedFare;
+    }
+
+    public void setBaseFare(BigDecimal baseFare) {
+        this.baseFare = baseFare;
     }
 
     // Getters.
@@ -93,10 +97,7 @@ class JourneyDetails {
         return journeyDate;
     }
 
-    public void setBaseFare(BigDecimal baseFare) {
-        this.baseFare = baseFare;
-    }
-
+    // A method that helps us in writing
     public String toCSV() {
         return journeyId + "," + fromZone + "," + toZone + "," + timeBand + "," + passengerType + "," + baseFare  + "," + journeyDate;
     }
@@ -116,24 +117,27 @@ class JourneyDetails {
     }
 }
 
-// A class that adds a journey.
-class AddJourney {
+// A class that manages all the journeys.
+class JourneyManager {
 
     private final List<JourneyDetails> journeyList;
-    private final DisplayTotalByPassengerType totals;
+    private final JourneyTotalByPassengerType totals;
+    private JourneyDetails lastRemovedJourney = null;
 
-    public AddJourney(List<JourneyDetails> journeyList,  DisplayTotalByPassengerType totals) {
+    /* A constructor in this class that passes the journey list that has all the journeys and
+    the totals object of the DisplayTotalByPassengerType class */
+    public JourneyManager(List<JourneyDetails> journeyList,  JourneyTotalByPassengerType totals) {
         this.journeyList = journeyList;
         this.totals = totals;
     }
 
     // Adds a journey object and computes all fares internally.
-    public void addJourney(JourneyDetails journeyDetails, GetCaps getCaps) {
+    public void addJourney(JourneyDetails journeyDetails, JourneyPricingRules journeyPricingRules) {
 
         calculateDiscountForJourney(journeyDetails);
 
         journeyList.add(journeyDetails);
-        totals.recalculateTotals(getCaps);
+        totals.recalculateTotals(journeyPricingRules);
         System.out.println("Journey added successfully.");
     }
 
@@ -153,7 +157,7 @@ class AddJourney {
         return false;
     }
 
-    // Applies discount based on passenger type.
+    // Applies discount based on the passenger type of each journey.
     public BigDecimal applyDiscount(JourneyDetails journeyDetails, BigDecimal baseFare) {
 
         BigDecimal discountRate = BigDecimal.ZERO;
@@ -173,19 +177,8 @@ class AddJourney {
         BigDecimal discount = baseFare.multiply(discountRate);
         return baseFare.subtract(discount);
     }
-}
 
-// A class that lists all the journeys.
-class ListJourneys {
-
-
-    private final List<JourneyDetails> journeyList;
-
-    public ListJourneys(List<JourneyDetails> journeyList) {
-        this.journeyList = journeyList;
-    }
-
-    // Displays all journeys.
+    // Displays all the journeys.
     public void displayJourneys() {
 
         if (journeyList.isEmpty()) {
@@ -196,16 +189,6 @@ class ListJourneys {
         for (JourneyDetails journey : journeyList) {
             journey.displayDetails();
         }
-    }
-}
-
-// A class that filters all the journeys.
-class FilterJourneys {
-
-    private final List<JourneyDetails> journeyList;
-
-    public FilterJourneys(List<JourneyDetails> journeyList) {
-        this.journeyList = journeyList;
     }
 
     // Filters journeys by the passenger type.
@@ -252,21 +235,9 @@ class FilterJourneys {
             }
         }
     }
-}
 
-// A class that removes a specific journey using the journey id.
-class RemoveJourney {
-
-    private final List<JourneyDetails> journeyList;
-    private JourneyDetails lastRemovedJourney = null;
-    private final DisplayTotalByPassengerType totals;
-
-    public RemoveJourney(List<JourneyDetails> journeyList, DisplayTotalByPassengerType totals) {
-        this.journeyList = journeyList;
-        this.totals = totals;
-    }
-
-    public JourneyDetails removeJourneyById(int id, GetCaps getCaps) {
+    // A method that removes a journey by its id.
+    public JourneyDetails removeJourneyById(int id, JourneyPricingRules journeyPricingRules) {
 
         for (int i = 0; i < journeyList.size(); i++) {
             if (journeyList.get(i).getJourneyId() == id) {
@@ -275,7 +246,7 @@ class RemoveJourney {
                 journeyList.remove(i);
 
                 // recalculate totals after removing
-                totals.recalculateTotals(getCaps);
+                totals.recalculateTotals(journeyPricingRules);
 
 
                 System.out.println("Journey removed successfully.");
@@ -298,22 +269,11 @@ class RemoveJourney {
     public void clearLastRemovedJourney() {
         lastRemovedJourney = null;
     }
-}
 
-// A class that undo the last removed journey in the journeys list.
-class UndoJourney {
+    // A method that undoes any last removed journey
+    public void undoLastRemoval(JourneyPricingRules journeyPricingRules) {
 
-    private final List<JourneyDetails> journeyList;
-    private final DisplayTotalByPassengerType totals;
-
-    public UndoJourney(List<JourneyDetails> journeyList, DisplayTotalByPassengerType totals) {
-        this.journeyList = journeyList;
-        this.totals = totals;
-    }
-
-    public void undoLastRemoval(RemoveJourney remover, GetCaps getCaps) {
-
-        JourneyDetails journey = remover.getLastRemovedJourney();
+        JourneyDetails journey = getLastRemovedJourney();
 
         if (journey == null) {
             System.out.println("Nothing to undo.");
@@ -321,25 +281,15 @@ class UndoJourney {
         }
 
         journeyList.add(journey);
-        remover.clearLastRemovedJourney();
+        clearLastRemovedJourney();
 
         // A method that recalculates all the passenger types’ totals after restoring a journey.
-        totals.recalculateTotals(getCaps);
+        totals.recalculateTotals(journeyPricingRules);
 
         System.out.println("Last removed journey has been restored.");
     }
-}
 
-// A class the sorts all the journeys from lowest to highest.
-class SortJourneys {
-
-    private final List<JourneyDetails> journeyList;
-
-    public SortJourneys(List<JourneyDetails> journeyList) {
-        this.journeyList = journeyList;
-    }
-
-    // MANUAL SORT: compares TWO objects taken from the list.
+    // A method that sorts all the journeys manually by their base fares.
     public void sortJourneysByFare() {
         for (int i = 0; i < journeyList.size() - 1; i++) {
             for (int j = i + 1; j < journeyList.size(); j++) {
@@ -357,20 +307,8 @@ class SortJourneys {
         }
         System.out.println("Journeys sorted by fare (lowest to highest).");
     }
-}
 
-/* A class that displays a daily summary for all the journeys,
-including the total number of journeys and the most expensive journey.
-*/
-class DisplaySummary {
-
-    private final List<JourneyDetails> journeyList;
-
-    public DisplaySummary(List<JourneyDetails> journeyList) {
-        this.journeyList = journeyList;
-    }
-
-    // Displays daily summary.
+    // A class that displays a daily summary for all the journeys.
     public void displayDailySummary() {
 
         if (journeyList.isEmpty()) {
@@ -396,18 +334,8 @@ class DisplaySummary {
                 mostExpensive.getJourneyId() +
                 " (£" + String.format("%.2f",mostExpensive.getChargedFare()) + ")");
     }
-}
 
-// A class that counts the number of peak, offPeak journeys, and journeys involved in each zone.
-class CategoryCounts {
-
-    private final List<JourneyDetails> journeyList;
-
-    public CategoryCounts(List<JourneyDetails> journeyList) {
-        this.journeyList = journeyList;
-    }
-
-    // Displays peak and off-peak counts.
+    // A method that displays peak and off-peak counts for all the journeys.
     public void displayTimeBandCounts() {
 
         int peak = 0;
@@ -425,7 +353,7 @@ class CategoryCounts {
         System.out.println("Off-peak journeys: " + offPeak);
     }
 
-    // Displays how many journeys involved each zone (zones 1–5 only).
+    // A method that displays how many journeys involved each zone (zones 1–5 only).
     public void displayZoneCounts() {
 
         int[] zoneCounts = new int[6]; // Index 1–5 represent zones.
@@ -442,21 +370,8 @@ class CategoryCounts {
             }
         }
     }
-}
 
-// A class that resets all the journeys in a specific day.
-class ResetDay {
-
-    private final List<JourneyDetails> journeyList;
-    private final DisplayTotalByPassengerType totals;
-
-    public ResetDay(List<JourneyDetails> journeyList,
-                    DisplayTotalByPassengerType totals) {
-        this.journeyList = journeyList;
-        this.totals = totals; // <-- the SAME instance used in main
-    }
-
-    // Resets all journeys.
+    // Resets all the journeys.
     public void resetJourneys(boolean Confirmed) {
 
         if (!Confirmed) {
@@ -469,269 +384,22 @@ class ResetDay {
     }
 }
 
-// A class that gets all the daily caps of all the passenger types for all the journeys
-class GetCaps {
-    public GetCaps() {}
-
-    // A method that helps us to get all the daily caps of all the passenger types
-    public BigDecimal getDailyCap(String passengerType) {
-        switch(passengerType.toLowerCase()) {
-            case "student": return new BigDecimal("6.00");
-            case "child": return new BigDecimal("4.00");
-            case "senior citizen": return new BigDecimal("7.00");
-            case "adult": return new  BigDecimal("8.00");
-            default: return BigDecimal.ZERO;
-        }
-    }
-}
-
-// A class that displays totals by passenger type.
-class DisplayTotalByPassengerType {
+// A class that gets and sets all the pricing rules of all the journeys by the admin.
+class JourneyPricingRules {
 
     private final List<JourneyDetails> journeyList;
 
-    // Running totals per passenger type (for daily cap logic)
-    private BigDecimal adultTotal = BigDecimal.ZERO;
-    private BigDecimal studentTotal = BigDecimal.ZERO;
-    private BigDecimal childTotal = BigDecimal.ZERO;
-    private BigDecimal seniorTotal = BigDecimal.ZERO;
-
-    public DisplayTotalByPassengerType(List<JourneyDetails> journeyList) {
+    // A constructor that passes the journey list to this class.
+    public JourneyPricingRules(List<JourneyDetails> journeyList) {
         this.journeyList = journeyList;
     }
 
-    // Recalculate totals and update each journey's charged fare
-    public void recalculateTotals(GetCaps getCaps) {
-
-        // Reset totals before recalculation
-        adultTotal = studentTotal = childTotal = seniorTotal = BigDecimal.ZERO;
-
-        // Loop through each journey in order
-        for (JourneyDetails journey : journeyList) {
-            BigDecimal discountedFare = journey.getDiscountedFare();  // Already calculated per journey
-            BigDecimal remainingCap = getCaps.getDailyCap(journey.getPassengerType()).
-                    subtract(getRunningTotal(journey.getPassengerType()));
-
-            // Charged fare = min(discountedFare, remaining cap left)
-            BigDecimal chargedFare = discountedFare.min(remainingCap);
-
-            // Set the journey's charged fare
-            journey.setChargedFare(chargedFare);
-
-            // Add to the running total
-            addToRunningTotal(journey.getPassengerType(), chargedFare);
-        }
-    }
-
-    // A method that gets the running total for a passenger type
-    public BigDecimal getRunningTotal(String passengerType) {
-        switch(passengerType.toLowerCase()) {
-            case "student": return studentTotal;
-            case "child": return childTotal;
-            case "senior citizen": return seniorTotal;
-            case "adult": return adultTotal;
-            default: return BigDecimal.ZERO;
-        }
-    }
-
-    // A method that adds the total of each student to the running total.
-    public void addToRunningTotal(String passengerType, BigDecimal fare) {
-        switch(passengerType.toLowerCase()) {
-            case "student": studentTotal = studentTotal.add(fare); break;
-            case "child": childTotal = childTotal.add(fare); break;
-            case "senior citizen": seniorTotal = seniorTotal.add(fare); break;
-            case "adult": adultTotal = adultTotal.add(fare); break;
-        }
-    }
-
-    // Display totals per passenger type
-    public void displayTotalsByPassengerType() {
-        System.out.println("Adult Total: £" + String.format("%.2f", adultTotal));
-        System.out.println("Student Total: £" + String.format("%.2f", studentTotal));
-        System.out.println("Child Total: £" + String.format("%.2f", childTotal));
-        System.out.println("Senior citizen Total: £" + String.format("%.2f", seniorTotal));
-    }
-
-    // Reset all totals
-    public void resetTotals() {
-        adultTotal = studentTotal = childTotal = seniorTotal = BigDecimal.ZERO;
-    }
-}
-
-// A class that writes all the journeys to a CSV file.
-class JourneyFileWriter {
-    public static void writeStudentsToFile(String fileName, List<JourneyDetails> journeyList) {
-        try {
-            PrintWriter writer = new PrintWriter(new FileWriter(fileName));
-            writer.println("journeyID,fromZone,toZone,timeBand,passengerType,baseFare,journeyDate");
-            for(JourneyDetails journeyDetails: journeyList){
-                writer.println(journeyDetails.toCSV());
-            }
-            writer.close();
-            System.out.println("journeys data successfully written to file");
-        }
-        catch (IOException e){
-            System.out.println("Error writing to file!");
-        }
-    }
-}
-
-// A class that reads all the journeys from a CSV file.
-class JourneyFileReader {
-
-    //  A method that validates the input and handles all the errors for the passenger type variable of all the read journeys.
-    public static String parsePassengerType(String input) {
-        String value = input.trim().toLowerCase();
-
-        if (value.equals("adult") ||
-                value.equals("student") ||
-                value.equals("child") ||
-                value.equals("senior citizen")) {
-            return value;
-        }
-
-        throw new IllegalArgumentException("Invalid passenger type: " + input);
-    }
-
-    // A method that Validates the input and handles all the errors for the time band variable of all the read journeys.
-    public static String parseTimeBand(String input) {
-        String value = input.trim().toLowerCase();
-
-        if (value.equals("peak") || value.equals("off-peak")) {
-            return value;
-        }
-
-        throw new IllegalArgumentException("Invalid time band: " + input);
-    }
-
-    public static List<JourneyDetails> readStudentsFromFile(String fileName) {
-        List<JourneyDetails> journeyList = new ArrayList<>();
-
-        try{
-            File file = new File(fileName);
-            Scanner scanner = new Scanner(file);
-
-            if (scanner.hasNextLine()){
-                scanner.nextLine();
-            }
-
-            while (scanner.hasNextLine()){
-                String line = scanner.nextLine();
-                String data[] = line.split(",");
-
-                int journeyId = Integer.parseInt(data[0]);
-                int fromZone = Integer.parseInt(data[1]);
-                int toZone = Integer.parseInt(data[2]);
-                String timeBand = parseTimeBand(data[3]);
-                String passengerType = parsePassengerType(data[4]);
-                BigDecimal baseFare = new BigDecimal(data[5]);
-                LocalDate journeyDate = LocalDate.parse(data[6]);
-
-                JourneyDetails journeyDetails = new JourneyDetails(
-                        journeyId,
-                        fromZone,
-                        toZone,
-                        timeBand,
-                        passengerType,
-                        baseFare,
-                        journeyDate
-                );
-                journeyList.add(journeyDetails);
-            }
-            scanner.close();
-        }
-        catch (FileNotFoundException e){
-            System.out.println("Error -> file not found!");
-        }
-        catch (NumberFormatException e){
-            System.out.println("Error -> Invalid number in file!");
-        }
-        return journeyList;
-    }
-}
-
-// A class that writes all the user profiles to a JSON file
-class ProfileFileReader {
-    private final Gson gson;
-    private String fileName;
-    public  ProfileFileReader() {
-        gson = new GsonBuilder().setPrettyPrinting().create();
-        fileName = "profiles.json";
-    }
-    public List<Profile> loadProfiles() {
-
-        List<Profile> loadProfiles = new ArrayList<>();
-        try {
-            FileReader reader = new FileReader(fileName);
-            Type profileListType = new TypeToken<ArrayList<Profile>>() {}.getType();
-            loadProfiles = gson.fromJson(reader, profileListType);
-            reader.close();
-            if (loadProfiles == null) {
-                loadProfiles = new ArrayList<>();
-            }
-        }
-        catch (Exception e) {
-            System.err.println("No existing file found. Starting with empty list");
-        }
-        return loadProfiles;
-    }
-}
-
-// A class that reads all the user profiles from a JSON file.
-class ProfileFileWriter {
-    private final List<Profile> profiles;
-    private final Gson gson;
-    private String fileName;
-    public  ProfileFileWriter(List<Profile> profiles) {
-        gson = new GsonBuilder().setPrettyPrinting().create();
-        this.profiles = profiles;
-        fileName = "profiles.json";
-    }
-    public void saveProfiles() {
-        try {
-            FileWriter writer = new FileWriter(fileName);
-            gson.toJson(profiles, writer);
-            writer.close();
-            System.out.println("Profiles saved to file.");
-        }
-        catch (Exception e) {
-            System.err.println("Error saving to file");
-            e.printStackTrace();
-        }
-    }
-}
-
-// A class that sets the user profile for the rider user role.
-class Profile {
-    private String name;
-    private String defaultPayment;
-
-    public Profile(String name, String defaultPayment) {
-        this.name = name;
-        this.defaultPayment = defaultPayment;
-    }
-
-    public Profile() {
-        name = "Ali";
-        defaultPayment = "Visa";
-    }
-
-    public void showProfile() {
-        System.out.println("Profile name: " + name);
-        System.out.println("Profile default payment method: " + defaultPayment);
-    }
-}
-
-// A class that sets the base fare rules by modifying the rules of the CityRide dataset that the base fare is taken from.
-class BaseFareRules{
-    public BaseFareRules() {}
-
-    public enum TimeBand {
+    private enum TimeBand {
         PEAK,
         OFF_PEAK
     }
 
-    public enum PassengerType {
+    private enum PassengerType {
         ADULT,
         STUDENT,
         CHILD,
@@ -748,9 +416,12 @@ class BaseFareRules{
 
     public static final Map<String, BigDecimal> BASE_FARE = buildBaseFare();
 
+    // A method that helps us to get the updated base fares according to the updated rules done by the admin.
     public static BigDecimal getBaseFare(int fromZone, int toZone, TimeBand timeBand) {
         return BASE_FARE.get(key(fromZone, toZone, timeBand));
     }
+
+    // A method that helps us to modify the default base fare rules by the admin.
     public static Map<String, BigDecimal> buildBaseFare(){
         Map<String, BigDecimal> m = new HashMap<>();
         // Peak fares
@@ -801,45 +472,50 @@ class BaseFareRules{
     public static void put(Map<String, BigDecimal> m, int from, int to, TimeBand band, String amount) {
         m.put(key(from, to, band), money(amount));
     }
-}
 
-// A class that modifies all the base fare rules of all the journeys of all the passenger types by the admin.
-class BaseFare {
-    private final List<JourneyDetails> journeyList;
-
-    public BaseFare(List<JourneyDetails> journeyList) {
-        this.journeyList = journeyList;
-    }
-
-    public void setBaseFareRules (
-                                  BaseFareRules fareRules) {
+    // A method that modifies the default base fare rules by the admin.
+    public void setBaseFareRules () {
         BigDecimal baseFare = BigDecimal.ZERO;
 
-        if (journeyList.isEmpty()){
+        if (journeyList.isEmpty()) {
             System.out.println("No Journeys found to modify the base fare for them by the admin!");
             return;
         }
 
-        for (JourneyDetails journeyDetails: journeyList) {
-            BaseFareRules.TimeBand band;
+        for (JourneyDetails journeyDetails : journeyList) {
+            TimeBand band;
             if (journeyDetails.getTimeBand().equalsIgnoreCase("peak")) {
-                band = BaseFareRules.TimeBand.PEAK;
+                band = TimeBand.PEAK;
             } else {
-                band = BaseFareRules.TimeBand.OFF_PEAK;
+                band = TimeBand.OFF_PEAK;
             }
             // update the base fare rules by the admin
-            baseFare = fareRules.getBaseFare(journeyDetails.getFromZone(), journeyDetails.getToZone(), band);
+            baseFare = getBaseFare(journeyDetails.getFromZone(), journeyDetails.getToZone(), band);
             journeyDetails.setBaseFare(baseFare);
         }
     }
-}
 
-// A class that modifies all the discounts of all the journeys of all the passenger types by the admin.
-class Discounts {
-    private final List<JourneyDetails> journeyList;
+    // A method that helps us to get all the daily caps of all the passenger types for all the journeys.
+    public BigDecimal getDailyCap(String passengerType) {
+        switch(passengerType.toLowerCase()) {
+            case "student": return new BigDecimal("6.00");
+            case "child": return new BigDecimal("4.00");
+            case "senior citizen": return new BigDecimal("7.00");
+            case "adult": return new  BigDecimal("8.00");
+            default: return BigDecimal.ZERO;
+        }
+    }
 
-    public Discounts(List<JourneyDetails> journeyList) {
-        this.journeyList = journeyList;
+    /* A method that helps us modify all the daily caps of all the passenger types of all the journeys by the
+     admin. */
+    public BigDecimal setDailyCap(String passengerType) {
+        switch(passengerType.toLowerCase()) {
+            case "student": return new BigDecimal("4.00");
+            case "child": return new BigDecimal("2.00");
+            case "senior citizen": return new BigDecimal("6.50");
+            case "adult": return new  BigDecimal("10.00");
+            default: return BigDecimal.ZERO;
+        }
     }
 
     // A method that sets all the discounted fares for all the journeys by the admin
@@ -867,31 +543,10 @@ class Discounts {
     }
 }
 
-// A class that modifies the caps of all the journeys of all the passenger types by the admin
-class SetCaps {
-    public SetCaps() {}
+// A class that gets and sets all the totals of all the passenger types of all the journeys.
+class JourneyTotalByPassengerType {
 
-    // A method that helps us to modify all the daily caps of all the passenger types by the admin.
-    public BigDecimal setDailyCap(String passengerType) {
-        switch(passengerType.toLowerCase()) {
-            case "student": return new BigDecimal("4.00");
-            case "child": return new BigDecimal("2.00");
-            case "senior citizen": return new BigDecimal("6.50");
-            case "adult": return new  BigDecimal("10.00");
-            default: return BigDecimal.ZERO;
-        }
-    }
-}
-
-/* A class that modifies the totals of all the passenger types in all the journeys after the admin changes the daily caps.
-This depends also on the charged fares after applying the discounts and daily caps on all the base fares of all the journeys
-of all the passenger types. */
-class SetTotalByPassengerType {
     private final List<JourneyDetails> journeyList;
-
-    public SetTotalByPassengerType(List<JourneyDetails> journeyList) {
-        this.journeyList = journeyList;
-    }
 
     // Running totals per passenger type (for daily cap logic)
     private BigDecimal adultTotal = BigDecimal.ZERO;
@@ -899,15 +554,22 @@ class SetTotalByPassengerType {
     private BigDecimal childTotal = BigDecimal.ZERO;
     private BigDecimal seniorTotal = BigDecimal.ZERO;
 
-    public void setTotals(SetCaps setCaps) {
+    // A constructor that passes the journey list to this class.
+    public JourneyTotalByPassengerType(List<JourneyDetails> journeyList) {
+        this.journeyList = journeyList;
+    }
 
-        // Reset totals before recalculation
+    /* A method that get the total of all the passenger types of all the journeys by recalculating it
+    after any change. */
+    public void recalculateTotals(JourneyPricingRules journeyPricingRules) {
+
+        // Resets the totals before recalculation
         adultTotal = studentTotal = childTotal = seniorTotal = BigDecimal.ZERO;
 
-        // Loop through each journey in order
+        // Loops through each journey in order
         for (JourneyDetails journey : journeyList) {
             BigDecimal discountedFare = journey.getDiscountedFare();  // Already calculated per journey
-            BigDecimal remainingCap = setCaps.setDailyCap(journey.getPassengerType()).
+            BigDecimal remainingCap = journeyPricingRules.getDailyCap(journey.getPassengerType()).
                     subtract(getRunningTotal(journey.getPassengerType()));
 
             // Charged fare = min(discountedFare, remaining cap left)
@@ -921,55 +583,250 @@ class SetTotalByPassengerType {
         }
     }
 
-        // A method that gets the running total for a passenger type
-        public BigDecimal getRunningTotal (String passengerType){
-            switch (passengerType.toLowerCase()) {
-                case "student":
-                    return studentTotal;
-                case "child":
-                    return childTotal;
-                case "senior citizen":
-                    return seniorTotal;
-                case "adult":
-                    return adultTotal;
-                default:
-                    return BigDecimal.ZERO;
+    /* A method that sets all the totals of all the passenger types of all the journeys after
+    changing the pricing rules by the admin */
+    public void setTotals(JourneyPricingRules journeyPricingRules) {
+
+        // Reset totals before recalculation
+        adultTotal = studentTotal = childTotal = seniorTotal = BigDecimal.ZERO;
+
+        // Loop through each journey in order
+        for (JourneyDetails journey : journeyList) {
+            BigDecimal discountedFare = journey.getDiscountedFare();  // Already calculated per journey
+            BigDecimal remainingCap = journeyPricingRules.setDailyCap(journey.getPassengerType()).
+                    subtract(getRunningTotal(journey.getPassengerType()));
+
+            // Charged fare = min(discountedFare, remaining cap left)
+            BigDecimal chargedFare = discountedFare.min(remainingCap);
+
+            // Set the journey's charged fare
+            journey.setChargedFare(chargedFare);
+
+            // Add to the running total
+            addToRunningTotal(journey.getPassengerType(), chargedFare);
+        }
+    }
+
+    // A method that gets the running total for a passenger type
+    public BigDecimal getRunningTotal(String passengerType) {
+        switch(passengerType.toLowerCase()) {
+            case "student": return studentTotal;
+            case "child": return childTotal;
+            case "senior citizen": return seniorTotal;
+            case "adult": return adultTotal;
+            default: return BigDecimal.ZERO;
+        }
+    }
+
+    // A method that adds the total of each student to the running total.
+    public void addToRunningTotal(String passengerType, BigDecimal fare) {
+        switch(passengerType.toLowerCase()) {
+            case "student": studentTotal = studentTotal.add(fare); break;
+            case "child": childTotal = childTotal.add(fare); break;
+            case "senior citizen": seniorTotal = seniorTotal.add(fare); break;
+            case "adult": adultTotal = adultTotal.add(fare); break;
+        }
+    }
+
+    // Displays the totals per passenger type
+    public void displayTotalsByPassengerType() {
+        System.out.println("Adult Total: £" + String.format("%.2f", adultTotal));
+        System.out.println("Student Total: £" + String.format("%.2f", studentTotal));
+        System.out.println("Child Total: £" + String.format("%.2f", childTotal));
+        System.out.println("Senior citizen Total: £" + String.format("%.2f", seniorTotal));
+    }
+
+    // Resets all the totals
+    public void resetTotals() {
+        adultTotal = studentTotal = childTotal = seniorTotal = BigDecimal.ZERO;
+    }
+}
+
+// A class that writes all the journeys to a CSV file.
+class JourneyFileWriter {
+
+    // A method that does the class’s purpose of writing all the journeys to a CSV file.
+    public static void writeJourneysToFile(String fileName, List<JourneyDetails> journeyList) {
+        try {
+            PrintWriter writer = new PrintWriter(new FileWriter(fileName));
+            writer.println("journeyID,fromZone,toZone,timeBand,passengerType,baseFare,journeyDate");
+            for(JourneyDetails journeyDetails: journeyList){
+                writer.println(journeyDetails.toCSV());
             }
+            writer.close();
+            System.out.println("journeys data successfully written to file");
+        }
+        catch (IOException e){
+            System.out.println("Error writing to file!");
+        }
+    }
+}
+
+// A class that reads all the journeys from a CSV file.
+class JourneyFileReader {
+
+    /*  A method that validates the input and handles all the errors for the passenger type variable of
+    all the recorded journeys */
+    public static String parsePassengerType(String input) {
+        String value = input.trim().toLowerCase();
+
+        if (value.equals("adult") ||
+                value.equals("student") ||
+                value.equals("child") ||
+                value.equals("senior citizen")) {
+            return value;
         }
 
-        // A method that adds the total of each student to the running total.
-        public void addToRunningTotal (String passengerType, BigDecimal fare){
-            switch (passengerType.toLowerCase()) {
-                case "student":
-                    studentTotal = studentTotal.add(fare);
-                    break;
-                case "child":
-                    childTotal = childTotal.add(fare);
-                    break;
-                case "senior citizen":
-                    seniorTotal = seniorTotal.add(fare);
-                    break;
-                case "adult":
-                    adultTotal = adultTotal.add(fare);
-                    break;
-            }
+        throw new IllegalArgumentException("Invalid passenger type: " + input);
+    }
+
+    /* A method that Validates the input and handles all the errors for the time band variable of all the
+     recorded journeys. */
+    public static String parseTimeBand(String input) {
+        String value = input.trim().toLowerCase();
+
+        if (value.equals("peak") || value.equals("off-peak")) {
+            return value;
         }
 
-        // Display totals per passenger type
-        public void displayTotalsByPassengerType() {
-            System.out.println("Adult Total: £" + String.format("%.2f", adultTotal));
-            System.out.println("Student Total: £" + String.format("%.2f", studentTotal));
-            System.out.println("Child Total: £" + String.format("%.2f", childTotal));
-            System.out.println("Senior citizen Total: £" + String.format("%.2f", seniorTotal));
+        throw new IllegalArgumentException("Invalid time band: " + input);
+    }
+
+    // A method that does the class’s purpose which is reading all the journeys from a CSV file.
+    public static List<JourneyDetails> readJourneysFromFile(String fileName) {
+        List<JourneyDetails> journeyList = new ArrayList<>();
+
+        try{
+            File file = new File(fileName);
+            Scanner scanner = new Scanner(file);
+
+            if (scanner.hasNextLine()){
+                scanner.nextLine();
+            }
+
+            while (scanner.hasNextLine()){
+                String line = scanner.nextLine();
+                String data[] = line.split(",");
+
+                int journeyId = Integer.parseInt(data[0]);
+                int fromZone = Integer.parseInt(data[1]);
+                int toZone = Integer.parseInt(data[2]);
+                String timeBand = parseTimeBand(data[3]);
+                String passengerType = parsePassengerType(data[4]);
+                BigDecimal baseFare = new BigDecimal(data[5]);
+                LocalDate journeyDate = LocalDate.parse(data[6]);
+
+                JourneyDetails journeyDetails = new JourneyDetails(
+                        journeyId,
+                        fromZone,
+                        toZone,
+                        timeBand,
+                        passengerType,
+                        baseFare,
+                        journeyDate
+                );
+                journeyList.add(journeyDetails);
+            }
+            scanner.close();
         }
+        catch (FileNotFoundException e){
+            System.out.println("Error -> file not found!");
+        }
+        catch (NumberFormatException e){
+            System.out.println("Error -> Invalid number in file!");
+        }
+        return journeyList;
+    }
+}
+
+// A class that writes all the user profiles to a JSON file
+class ProfileFileReader {
+    private final Gson gson;
+    private String fileName;
+
+    // A default constructor
+    public  ProfileFileReader() {
+        gson = new GsonBuilder().setPrettyPrinting().create();
+        fileName = "profiles.json";
+    }
+
+    // A method that does the class’s purpose of reading all the user profiles from a JSON file.
+    public List<Profile> loadProfiles() {
+
+        List<Profile> loadProfiles = new ArrayList<>();
+        try {
+            FileReader reader = new FileReader(fileName);
+            Type profileListType = new TypeToken<ArrayList<Profile>>() {}.getType();
+            loadProfiles = gson.fromJson(reader, profileListType);
+            reader.close();
+            if (loadProfiles == null) {
+                loadProfiles = new ArrayList<>();
+            }
+        }
+        catch (Exception e) {
+            System.err.println("No existing file found. Starting with empty list");
+        }
+        return loadProfiles;
+    }
+}
+
+// A class that reads all the user profiles from a JSON file.
+class ProfileFileWriter {
+    private final List<Profile> profiles;
+    private final Gson gson;
+    private String fileName;
+
+    // A default constructor
+    public  ProfileFileWriter(List<Profile> profiles) {
+        gson = new GsonBuilder().setPrettyPrinting().create();
+        this.profiles = profiles;
+        fileName = "profiles.json";
+    }
+
+    // A method that does the class’s purpose of writing all the user profiles to a JSON file.
+    public void saveProfiles() {
+        try {
+            FileWriter writer = new FileWriter(fileName);
+            gson.toJson(profiles, writer);
+            writer.close();
+            System.out.println("Profiles saved to file.");
+        }
+        catch (Exception e) {
+            System.err.println("Error saving to file");
+            e.printStackTrace();
+        }
+    }
+}
+
+// A class that sets the user profile for the rider user role.
+class Profile {
+    private String name;
+    private String defaultPayment;
+
+    // A constructor that passes specific values to the private attributes of this class.
+    public Profile(String name, String defaultPayment) {
+        this.name = name;
+        this.defaultPayment = defaultPayment;
+    }
+
+    public Profile() {
+        name = "Ali";
+        defaultPayment = "Visa";
+    }
+
+    public void showProfile() {
+        System.out.println("Profile name: " + name);
+        System.out.println("Profile default payment method: " + defaultPayment);
+    }
 }
 
 /* A class that calculates the savings of each journey which is the remaining amount from the discounted fare after applying
 the cap regardless of its passenger type */
-class Savings {
+class JourneySavingsCalculator {
     private final List<JourneyDetails> journeyList;
 
-    public Savings(List<JourneyDetails> journeyList) {
+    // A constructor that passes the journey list to this class.
+    public JourneySavingsCalculator(List<JourneyDetails> journeyList) {
         this.journeyList = journeyList;
     }
 
@@ -992,14 +849,17 @@ class Savings {
 class Rider {
     private final List<Profile> profiles;
 
+    // A constructor that passes the profiles list to this class.
     public Rider(List<Profile> profiles) {
         this.profiles = profiles;
     }
 
+    // A method that adds a profile to the profiles list.
     public void addProfile(Profile profile){
         profiles.add(profile);
     }
 
+    // A method that displays all the profiles that are in the profiles list.
     public void displayProfiles() {
         if (profiles.isEmpty()) {
             System.out.println("No profiles found!");
@@ -1015,33 +875,35 @@ class Rider {
 class Admin {
     private String userName;
     private String password;
-    private BaseFare baseFare;
+    private JourneyPricingRules journeyPricingRules;
 
-    public Admin(String userName, String password, BaseFare baseFare) {
+    // The admin constructor
+    public Admin(String userName, String password, JourneyPricingRules journeyPricingRules) {
         this.userName = userName;
         this.password = password;
-        this.baseFare = baseFare;
+        this.journeyPricingRules = journeyPricingRules;
     }
 
-    /* A method that allows the admin to log in to the system with his  correct username and password to access a
-    specific menu that allows him to add, update, or delete fare rules, discounts, daily caps, and peak time windows */
+    /* A method that allows the admin to log in to the system with his  correct username and password to access
+     a specific menu that allows him to add, update, or delete fare rules, discounts, daily caps
+    , and peak time windows */
     public boolean login(String inputUserName, String inputPassword) {
         return userName.equals(inputUserName) && password.equals(inputPassword);
     }
 
     // A method that modifies the base fare rules for all the journeys.
-    public void modifyBaseFareRules(BaseFare baseFare, BaseFareRules fareRules) {
-        baseFare.setBaseFareRules(fareRules);
+    public void modifyBaseFareRules() {
+        journeyPricingRules.setBaseFareRules();
     }
 
     // A method that modifies the discounts rules in all the journeys of all the passenger types.
-    public void modifyAllJourneysDiscounts(Discounts discount) {
-        discount.setAllJourneysDiscounts();
+    public void modifyAllJourneysDiscounts() {
+        journeyPricingRules.setAllJourneysDiscounts();
     }
 
     // A method that modifies the caps of all the journeys of all the passenger types.
-    public void modifyAllJourneysCaps(SetTotalByPassengerType setTotalByPassengerType, SetCaps setCaps) {
-        setTotalByPassengerType.setTotals(setCaps);
+    public void modifyAllJourneysCaps(JourneyTotalByPassengerType journeyTotalByPassengerType) {
+        journeyTotalByPassengerType.setTotals(journeyPricingRules);
     }
 }
 
@@ -1050,7 +912,6 @@ public class CityRideLiteApp {
 
     public static void main(String[] args) {
 
-        BaseFareRules fareRules = new BaseFareRules();
         List<JourneyDetails> journeyList = new ArrayList<>();
         List<Profile> profiles = new ArrayList<>();
         Scanner sc = new Scanner(System.in);
@@ -1140,9 +1001,6 @@ public class CityRideLiteApp {
             }
         }
 
-        BaseFare baseFare1 = new BaseFare(journeyList);
-        Admin admin = new Admin(userName, password, baseFare1);
-
         int userRole = 0;
         boolean validUserRole = false;
         while (!validUserRole) {
@@ -1168,23 +1026,13 @@ public class CityRideLiteApp {
             System.out.println("The user role of this program is admin");
         }
 
-        ListJourneys journeys = new ListJourneys(journeyList);
-        FilterJourneys journeysFiltered = new FilterJourneys(journeyList);
-        SortJourneys sortedJourneys = new SortJourneys(journeyList);
-        DisplaySummary journeysSummary = new DisplaySummary(journeyList);
-        CategoryCounts count = new CategoryCounts(journeyList);
-        GetCaps getCaps = new GetCaps();
-        DisplayTotalByPassengerType totals = new DisplayTotalByPassengerType(journeyList);
-        AddJourney journey1 = new AddJourney(journeyList, totals);
-        RemoveJourney removedJourney = new RemoveJourney(journeyList, totals);
-        UndoJourney journey2 = new UndoJourney(journeyList, totals);
-        ResetDay journeysReset = new ResetDay(journeyList, totals);
+        JourneyPricingRules journeyPricingRules = new JourneyPricingRules(journeyList);
+        Admin admin = new Admin(userName, password, journeyPricingRules);
+        JourneyTotalByPassengerType totals = new JourneyTotalByPassengerType(journeyList);
+        JourneyManager journeyManager = new JourneyManager(journeyList,totals);
         ProfileFileWriter profileFileWriter = new ProfileFileWriter(profiles);
         ProfileFileReader profileFileReader = new ProfileFileReader();
-        Discounts discount = new Discounts(journeyList);
-        SetCaps setCaps = new SetCaps();
-        SetTotalByPassengerType setTotalByPassengerType = new SetTotalByPassengerType(journeyList);
-        Savings savings = new Savings(journeyList);
+        JourneySavingsCalculator savings = new JourneySavingsCalculator(journeyList);
 
         boolean running = true;
 
@@ -1241,7 +1089,7 @@ public class CityRideLiteApp {
                                 System.out.println("Journey ID:");
                                 journeyId = sc.nextInt();
                                 sc.nextLine();
-                                if (journey1.journeyIdExists(journeyId)) {
+                                if (journeyManager.journeyIdExists(journeyId)) {
                                     System.out.println("This Journey ID already exists. Please enter a unique ID.");
                                 } else {
                                     validJourneyId = true;
@@ -1369,20 +1217,20 @@ public class CityRideLiteApp {
                                 journeyDate
                         );
 
-                        journey1.addJourney(journey, getCaps);
+                        journeyManager.addJourney(journey, journeyPricingRules);
                     }
                     break;
 
                 case 2:
                     if (userRole == 1 || userRole == 2) {
-                        journeys.displayJourneys();
+                        journeyManager.displayJourneys();
                     }
                     break;
 
                 case 3:
                     if (userRole == 1) {
                         System.out.println("Passenger type to filter: ");
-                        journeysFiltered.filterByPassengerType(sc.nextLine());
+                        journeyManager.filterByPassengerType(sc.nextLine());
                     }
                     else {
                         System.out.println("The program’s user is not a rider to filter all the journeys by the " +
@@ -1411,7 +1259,7 @@ public class CityRideLiteApp {
                                 sc.nextLine();
                             }
                         }
-                        journeysFiltered.filterByStartingZone(fromZone);
+                        journeyManager.filterByStartingZone(fromZone);
                     }
                     else {
                         System.out.println("The program’s user is not a rider to filter all the journeys by the " +
@@ -1440,7 +1288,7 @@ public class CityRideLiteApp {
                                 sc.nextLine();
                             }
                         }
-                        journeysFiltered.filterByDestinationZone(toZone);
+                        journeyManager.filterByDestinationZone(toZone);
                     }
                     else {
                         System.out.println("The program’s user is not a rider to filter all the journeys by the " +
@@ -1466,7 +1314,7 @@ public class CityRideLiteApp {
                                 System.out.println("Invalid date format. Use YYYY-MM-DD.");
                             }
                         }
-                        journeysFiltered.filterByJourneyDate(dateOfJourney);
+                        journeyManager.filterByJourneyDate(dateOfJourney);
                     }
                     else {
                         System.out.println("The program’s user is not a rider to filter all the journeys by the " +
@@ -1477,7 +1325,7 @@ public class CityRideLiteApp {
                 case 7:
                     if (userRole == 1) {
                         System.out.println("Time band to filter: ");
-                        journeysFiltered.filterByTimeBand(sc.nextLine());
+                        journeyManager.filterByTimeBand(sc.nextLine());
                     }
                     else {
                         System.out.println("The program’s user is not a rider to filter all the journeys by the " +
@@ -1502,7 +1350,7 @@ public class CityRideLiteApp {
                                 sc.nextLine();
                             }
                         }
-                        removedJourney.removeJourneyById(journeyId, getCaps);
+                        journeyManager.removeJourneyById(journeyId, journeyPricingRules);
                     }
                     else {
                         System.out.println("The program’s user is not a rider to to try to remove any journey by its " +
@@ -1512,7 +1360,7 @@ public class CityRideLiteApp {
 
                 case 9:
                     if (userRole == 1) {
-                        journey2.undoLastRemoval(removedJourney, getCaps);
+                        journeyManager.undoLastRemoval(journeyPricingRules);
                     }
                     else {
                         System.out.println("The program’s user is not a rider to try to undo any last removed journey");
@@ -1521,7 +1369,7 @@ public class CityRideLiteApp {
 
                 case 10:
                     if (userRole == 1) {
-                        sortedJourneys.sortJourneysByFare();
+                        journeyManager.sortJourneysByFare();
                     }
                     else {
                         System.out.println("The program’s user is not a rider to sort any journeys by the charged fare");
@@ -1530,7 +1378,7 @@ public class CityRideLiteApp {
 
                 case 11:
                     if (userRole == 1) {
-                        journeysSummary.displayDailySummary();
+                        journeyManager.displayDailySummary();
                     }
                     else {
                         System.out.println("The program’s user is not a rider to display a daily summary for all the " +
@@ -1540,8 +1388,8 @@ public class CityRideLiteApp {
 
                 case 12:
                     if  (userRole == 1) {
-                        count.displayTimeBandCounts();
-                        count.displayZoneCounts();
+                        journeyManager.displayTimeBandCounts();
+                        journeyManager.displayZoneCounts();
                     }
                     else {
                         System.out.println("The program’s user is not a rider to count all the journeys that are peak" +
@@ -1552,7 +1400,7 @@ public class CityRideLiteApp {
                 case 13:
                     if (userRole == 1) {
                         System.out.println("Confirm reset (y/n): ");
-                        journeysReset.resetJourneys(sc.nextLine().equalsIgnoreCase("y"));
+                        journeyManager.resetJourneys(sc.nextLine().equalsIgnoreCase("y"));
                     }
                     else {
                         System.out.println("The program’s user is not a rider to reset all the journeys");
@@ -1561,39 +1409,42 @@ public class CityRideLiteApp {
 
                 case 14:
                     if (userRole == 1) {
-                        totals.recalculateTotals(getCaps);
+                        totals.recalculateTotals(journeyPricingRules);
                         totals.displayTotalsByPassengerType();
                     }
                     else {
-                        setTotalByPassengerType.setTotals(setCaps);
-                        setTotalByPassengerType.displayTotalsByPassengerType();
+                        totals.setTotals(journeyPricingRules);
+                        totals.displayTotalsByPassengerType();
                     }
                     break;
 
                 case 15:
                     if (userRole == 1) {
-                        JourneyFileWriter.writeStudentsToFile("journeys.csv", journeyList);
-                    } else {
+                        JourneyFileWriter.writeJourneysToFile("journeys.csv", journeyList);
+                    }
+                    else {
                         System.out.println("The user cannot write the journeys to a CSV file because he is not a rider.");
                     }
                     break;
 
                 case 16:
                     if (userRole == 1) {
-                        List<JourneyDetails> imported = JourneyFileReader.readStudentsFromFile("journeys.csv");
+                        List<JourneyDetails> imported = JourneyFileReader.readJourneysFromFile("journeys.csv");
                         if (imported.isEmpty()) {
                             System.out.println("No journeys loaded (file not found or empty).");
-                        } else {
+                        }
+                        else {
                             journeyList.clear();
                             journeyList.addAll(imported);
 
                             for (JourneyDetails j : journeyList) {
-                                journey1.calculateDiscountForJourney(j);
+                                journeyManager.calculateDiscountForJourney(j);
                             }
-                            totals.recalculateTotals(getCaps);
+                            totals.recalculateTotals(journeyPricingRules);
                             System.out.println("Journeys loaded from file.");
                         }
-                    } else {
+                    }
+                    else {
                         System.out.println("The user cannot read the journeys from a CSV file because he is not a rider.");
                     }
                     break;
@@ -1601,7 +1452,8 @@ public class CityRideLiteApp {
                 case 17:
                     if (userRole == 1) {
                         profileFileWriter.saveProfiles();
-                    } else {
+                    }
+                    else {
                         System.out.println("The user cannot write the profiles to a JSON file because he is not a rider.");
                     }
                     break;
@@ -1616,7 +1468,8 @@ public class CityRideLiteApp {
                         }
                         if (imported.isEmpty()) {
                             System.out.println("No profiles loaded (file not found or empty).");
-                        } else {
+                        }
+                        else {
                             System.out.println("Profiles loaded from file.");
                         }
                     } else {
@@ -1627,15 +1480,17 @@ public class CityRideLiteApp {
                 case 19:
                     if (userRole == 2) {
                         if (admin.login(inputUserName, inputPassword)) {
-                            admin.modifyBaseFareRules(baseFare1, fareRules);
-                            admin.modifyAllJourneysDiscounts(discount);
-                            admin.modifyAllJourneysCaps(setTotalByPassengerType,setCaps);
+                            admin.modifyBaseFareRules();
+                            admin.modifyAllJourneysDiscounts();
+                            admin.modifyAllJourneysCaps(totals);
                             System.out.println("All the base fare rules, discounts, daily caps are modified in " +
                                     "all the journeys of all the passenger types by the admin");
-                        } else {
+                        }
+                        else {
                             System.out.println("The admin cannot log in with this password and username to modify the base fare");
                         }
-                    } else {
+                    }
+                    else {
                         System.out.println("The user is not an admin to do these changes.");
                     }
                     break;
