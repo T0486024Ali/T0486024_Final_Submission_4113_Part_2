@@ -811,7 +811,7 @@ class BaseFare {
         this.journeyList = journeyList;
     }
 
-    public void setBaseFareRules (AddJourney addJourney, DisplayTotalByPassengerType totals,
+    public void setBaseFareRules (
                                   BaseFareRules fareRules) {
         BigDecimal baseFare = BigDecimal.ZERO;
 
@@ -1030,9 +1030,8 @@ class Admin {
     }
 
     // A method that modifies the base fare rules for all the journeys.
-    public void modifyBaseFareRules(BaseFare baseFare, AddJourney addJourney,
-                                    DisplayTotalByPassengerType totals, BaseFareRules fareRules) {
-        baseFare.setBaseFareRules(addJourney, totals, fareRules);
+    public void modifyBaseFareRules(BaseFare baseFare, BaseFareRules fareRules) {
+        baseFare.setBaseFareRules(fareRules);
     }
 
     // A method that modifies the discounts rules in all the journeys of all the passenger types.
@@ -1212,7 +1211,7 @@ public class CityRideLiteApp {
             System.out.println("18. Read all the profiles from a JSON file");
             System.out.println("19. Modify the base fare rules, discounts, daily caps by the admin");
             System.out.println("20. Print the savings which is the remaining amount from the discounted fare after " +
-                    "applying the cap on each journey regardless fo its passenger type.");
+                    "applying the cap on each journey regardless of its passenger type.");
             System.out.println("21.Exit.");
             System.out.println("Choose option: ");
 
@@ -1322,7 +1321,7 @@ public class CityRideLiteApp {
                                         !timeBand.equalsIgnoreCase("off-peak")) {
 
                                     System.out.println("Please enter peak or off-peak: ");
-                                    timeBand = sc.nextLine();
+                                    timeBand = sc.nextLine().trim().toLowerCase();
                                 }
                                 validTimeBand = true;
                             } catch (InputMismatchException e) {
@@ -1628,7 +1627,7 @@ public class CityRideLiteApp {
                 case 19:
                     if (userRole == 2) {
                         if (admin.login(inputUserName, inputPassword)) {
-                            admin.modifyBaseFareRules(baseFare1, journey1, totals, fareRules);
+                            admin.modifyBaseFareRules(baseFare1, fareRules);
                             admin.modifyAllJourneysDiscounts(discount);
                             admin.modifyAllJourneysCaps(setTotalByPassengerType,setCaps);
                             System.out.println("All the base fare rules, discounts, daily caps are modified in " +
